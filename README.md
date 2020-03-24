@@ -6,7 +6,7 @@ https://docs.google.com/document/d/1eSJ6UNhpUenhdOfjNK9OoH-TnjUoNzNX6BgmGwwovZM/
 
 --------------------
 
-#Class Structure:
+# Class Structure:
 
 * Util
 * Enviroment:
