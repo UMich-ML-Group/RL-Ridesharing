@@ -5,6 +5,7 @@ Shared google doc:
 https://docs.google.com/document/d/1eSJ6UNhpUenhdOfjNK9OoH-TnjUoNzNX6BgmGwwovZM/edit
 
 --------------------
+
 #Class Structure:
 
 * Util
