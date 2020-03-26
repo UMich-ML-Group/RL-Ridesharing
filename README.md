@@ -17,38 +17,69 @@ https://docs.google.com/document/d/1eSJ6UNhpUenhdOfjNK9OoH-TnjUoNzNX6BgmGwwovZM/
 
 # Feature Representation (Discussing)
 
-* Observation: 
-  Type: spaces.Dict
-  {"Cars": [...], "Passengers": [...]}
+# Feature Representation
 
-  max_num_of_cars=3, max_num_of_passengers=3
+In order to reduce the action space, so the action now is a pair decision for one car, meaning we need an indicator to point out which car we are pairing now.
 
-  len of vector will be max_num_of_cars+max_num_of_passengers
+### Observation: = [indicator, cars, passengers]
 
-  [car1_x, car1_y, car2_x, car2_y, ...., passenger1_x, passenger1_y, ....]
+indicator: one-hot encoding to indicate which car we are pairing now
 
-  If the num of cars is smaller than max number, than set car1_x=-1, car1_y=-1.
-Same as the passenger
+cars: [car_1, car_2, ..., car_max] where car_n = (position_x, position_y)
 
-* Actions:
-  Type: Discrete(len(Cars))
+passengers: [person_1, person_2, ..., person_max] where person_n = (pick_up_x, pick_up_y, destination_x, destination_y)
 
-  max_num_of_cars=3
-  len of vector will be max_num_of_cars
+* Example:
 
-  [2,1,3]
+car_max = 3, passenger_max = 4
 
-  The list corresponds to an assigment from the car at that every index to a   passanger with the corresponding number.
+observation will be a vector with dimension: 3+3\*2+4\*4 = 25
 
-  Each number should be a interger between -1 and the number of passangers.
 
-  -1 means that the corresponding car has no assignment.
+### Action: = [passengers_q, ignore]
 
-* Reward:
-  Reward is 1 when a passanger is dropped and -0.1 for every step taken.
+passengers_q: [person_q_1, person_q_2, ..., person_q_max]
 
-  Starting State:
-  Uniform random initialization of cars, passangers and road costs.
+ignore: is a scalar, meaning the q-value of choosing do nothing.
 
-  Episode Termination:
-  The episode ends after every passanger is picked up.
+* Example:
+
+car_max = 3, passenger_max = 4
+
+action will be a vector with dimension: 4+1 = 5
+
+### Reward: = (constant_drop_off_reward - \#steps_waiting_for_pick_up), which is a scalar
+
+reward is given to the environment when the passenger has been drop off.
+
+We can use a callback (traceback) function to relate the reward to a certain previous action caused the reward, and then put into replay buffer.
+
+* Example
+
+Let constant_drop_off_reward = 100
+A passenger is picked up 23 environment steps after.
+The reward from this passenger is 100-23=77 and is given after drop off .
+
+### Environment step: represent world timestamp
+
+For one environment step, either car move foward a grid, require_step minus 1, pick up, or drop off.
+
+### Algorithem step: Whenever the pair is required
+
+The length of alforithem step is varied in terms of environment steps, and is lasting until the next alforithem happen or termination.
+
+condition1: there is at least 1 passenger request which hasn't be served.
+
+condition2: there is at least 1 avaliable car
+
+### Environment initialization:
+Randomly assign costs of road.
+
+### Episode Start:
+Uniformly generate cars and passangers on the map.
+
+### Episode Termination:
+All the passangers have been served.
+
+For now, there is no passenger will be generated during the episode. (We can test more complicated senario later)
+
