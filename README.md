@@ -15,8 +15,6 @@ https://docs.google.com/document/d/1eSJ6UNhpUenhdOfjNK9OoH-TnjUoNzNX6BgmGwwovZM/
     * Passenger
   * Pair_Algorithm
 
-# Feature Representation (Discussing)
-
 # Feature Representation
 
 In order to reduce the action space, so the action now is a pair decision for one car, meaning we need an indicator to point out which car we are pairing now.
