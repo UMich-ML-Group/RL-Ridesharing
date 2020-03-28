@@ -4,16 +4,12 @@ from gridmap import GridMap
 from passenger import Passenger
 from car import Car
 from util import Util
+from dqn import DQN
 
 class PairAlgorithm:
-    def assign_random(self, cars, passengers):
-        cars = random.shuffle(cars)
-        passengers = random.shuffle(passengers)
 
-        car_count = 0
-        for i, car in enumerate(cars):
-            p = passengers[i] if i < len(passengers) and car.status == 'idle' else None
-            car.set_passenger(p)
+    def __init__(self):
+        self.dqn = DQN()
 
     def greedy_fcfs(self, grid_map):
         passengers = grid_map.passengers
@@ -33,6 +29,11 @@ class PairAlgorithm:
                     pick_up_path = grid_map.plan_path(assigned_car.position, p.pick_up_point)
                     drop_off_path = grid_map.plan_path(p.pick_up_point, p.drop_off_point)
                     assigned_car.assign_path(pick_up_path, drop_off_path)
+
+    def deep_q_learning(self, grid_map):
+        # TODO for each environment step, check whether is algorithm step or not
+        if ('is_algorithm_step'):
+            self.dqn.step(grid_map)
 
 if __name__ == '__main__':
     algorithm = PairAlgorithm()

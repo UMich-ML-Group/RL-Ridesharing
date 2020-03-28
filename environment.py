@@ -11,6 +11,8 @@ class Environment:
     def step(self):
         # paring
         self.algorithm.greedy_fcfs(self.grid_map)
+        # TODO switch to reinforcement algorithm
+        self.algorithm.dqn(self.grid_map)
 
         for passenger in self.grid_map.passengers:
             if passenger.status == 'wait_pair' or passenger.status == 'wait_pick':

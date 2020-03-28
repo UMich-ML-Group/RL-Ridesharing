@@ -14,6 +14,9 @@ https://docs.google.com/document/d/1eSJ6UNhpUenhdOfjNK9OoH-TnjUoNzNX6BgmGwwovZM/
     * Car
     * Passenger
   * Pair_Algorithm
+    * DQN
+        * ReplayBuffer
+        * QNetwork
 
 # Feature Representation
 
