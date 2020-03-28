@@ -18,6 +18,7 @@ def main():
         grid_map.visualize()
         print('-'*10)
         env.step()
+        # env.step(action)
         step_count += 1
         time.sleep(1)
         if finished:

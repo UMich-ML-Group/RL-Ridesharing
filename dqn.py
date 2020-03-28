@@ -53,7 +53,7 @@ class DQN(nn.Module):
         return out
 
 
-class Full_DQN:
+class Full_DQN(Algorithm):
     def __init__(self):
         self.batch_size = 128
         self.gamma = 0.999
@@ -181,3 +181,6 @@ if __name__ == '__main__':
     Model = Full_DQN()
     s = Model.get_state(m, 1)
     print(s)
+
+    num_episodes = 50
+
