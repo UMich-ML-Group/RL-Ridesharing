@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 
 import time
 from IPython.display import clear_output

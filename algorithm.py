@@ -3,6 +3,7 @@ import math
 from gridmap import GridMap
 from passenger import Passenger
 from car import Car
+from util import Util
 
 class PairAlgorithm:
     def assign_random(self, cars, passengers):
@@ -23,8 +24,7 @@ class PairAlgorithm:
             if p.status == 'wait_pair':
                 for c in cars:
                     if c.status == 'idle':
-                        # TODO use util?
-                        dist = abs(p.pick_up_point[0]-c.position[0]) + abs(p.pick_up_point[1]-c.position[1]) #  L1 distance
+                        dist = Util.cal_dist(p.pick_up_point, c.position)
                         if dist < min_dist:
                             min_dist = dist
                             assigned_car = c

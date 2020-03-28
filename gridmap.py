@@ -89,40 +89,26 @@ class GridMap:
             self.passengers.append(Passenger(s, d))
 
     def plan_path(self, start_point, end_point):
+        def check_optim(next_pos, min_dist, optim_next_pos):
+            if self.is_valid(next_pos):
+                dist = Util.cal_dist(next_pos, end_point)
+                if dist < min_dist:
+                    min_dist = dist
+                    optim_next_pos = next_pos
+            return min_dist, optim_next_pos
         path = []
         curr_pos = start_point
         while curr_pos != end_point:
             min_dist = math.inf
             optim_next_pos = None
-            # TODO simplify this part
             # up
-            next_pos = (curr_pos[0]-1, curr_pos[1])
-            if self.is_valid(next_pos):
-                dist = Util.cal_dist(next_pos, end_point)
-                if dist < min_dist:
-                    min_dist = dist
-                    optim_next_pos = next_pos
+            min_dist, optim_next_pos = check_optim((curr_pos[0]-1, curr_pos[1]), min_dist, optim_next_pos)
             # down
-            next_pos = (curr_pos[0]+1, curr_pos[1])
-            if self.is_valid(next_pos):
-                dist = Util.cal_dist(next_pos, end_point)
-                if dist < min_dist:
-                    min_dist = dist
-                    optim_next_pos = next_pos
+            min_dist, optim_next_pos = check_optim((curr_pos[0]+1, curr_pos[1]), min_dist, optim_next_pos)
             # left
-            next_pos = (curr_pos[0], curr_pos[1]-1)
-            if self.is_valid(next_pos):
-                dist = Util.cal_dist(next_pos, end_point)
-                if dist < min_dist:
-                    min_dist = dist
-                    optim_next_pos = next_pos
+            min_dist, optim_next_pos = check_optim((curr_pos[0], curr_pos[1]-1), min_dist, optim_next_pos)
             # right
-            next_pos = (curr_pos[0], curr_pos[1]+1)
-            if self.is_valid(next_pos):
-                dist = Util.cal_dist(next_pos, end_point)
-                if dist < min_dist:
-                    min_dist = dist
-                    optim_next_pos = next_pos
+            min_dist, optim_next_pos = check_optim((curr_pos[0], curr_pos[1]+1), min_dist, optim_next_pos)
             assert optim_next_pos is not None, 'no valid position for optim_next_pos'
             path.append(optim_next_pos)
             curr_pos = optim_next_pos
