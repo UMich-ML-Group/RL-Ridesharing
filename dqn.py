@@ -1,10 +1,14 @@
 import numpy as np
+import random
+from itertools import count
+from collections import namedtuple
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 import torchvision.transforms as T
-from collections import namedtuple
+
 from gridmap import GridMap
 
 
@@ -76,9 +80,10 @@ class Full_DQN:
         self.steps_done = 0
 
     def select_action(self,state,num_passengers, num_cars):
-        # Possible Action size = Num_passengers 0
         # make list of free passengers
         # pick randomly from this list
+
+        # Possible Action size = Num_passengers + 1 (do nothing)
 
         # if car does not have passenger
         sample = random.random()
@@ -92,8 +97,26 @@ class Full_DQN:
                 # found, so we pick action with the larger expected reward.
                 return self.policy_net(state).max(1)[1].view(1, 1)
         else:
+            # Pick random free passenger to pick or do nothing
+            free_passenger_idx = [-1] # -1 is for do nothing
+            for i in range(num_passengers):
+                if not state[4*num_cars + 5*i+4]: # free if not matched
+                    free_passenger_idx.append(i)
 
-            return torch.tensor([[random.randrange(self.action_size)]], device=device, dtype=torch.long)
+            # Now we have a list of free passengers
+            idx = random.choice(free_passenger_idx)
+
+            # Form action output as OHE
+            # Last OHE index == 1 means do nothing
+            action = np.zeros(num_passengers+1)
+            if idx == -1:
+                action[num_passengers] = 1
+            else:
+                action[idx] = 1
+
+            return torch.tensor(action, device=self.device, dtype=torch.long)
+
+            #return torch.tensor([[random.randrange(self.action_size)]], device=device, dtype=torch.long)
 
     def get_state(self, grid_map, car_index):
         # We are going to stack everything as a vector
@@ -131,6 +154,10 @@ class Full_DQN:
         pass
 
     def step(self, grid_map):
+        cars = grid_map.cars
+        for c in cars:
+
+
         # TODO implement a step
         curr_state = self.get_state(grid_map)
         curr_action = self.get_action(curr_state)
