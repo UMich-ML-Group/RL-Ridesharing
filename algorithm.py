@@ -32,6 +32,7 @@ class PairAlgorithm:
 
     def deep_q_learning(self, grid_map):
         # TODO for each environment step, check whether is algorithm step or not
+        return
         if ('is_algorithm_step'):
             self.dqn.step(grid_map)
 
