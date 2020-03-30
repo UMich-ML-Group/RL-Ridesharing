@@ -53,7 +53,7 @@ class DQN(nn.Module):
         return out
 
 
-class Full_DQN(Algorithm):
+class Full_DQN():
     def __init__(self):
         self.batch_size = 128
         self.gamma = 0.999
@@ -81,7 +81,14 @@ class Full_DQN(Algorithm):
 
     def select_action(self,state,num_passengers, num_cars):
         # make list of free passengers
-        # pick randomly from this list
+        # pick randomly from this list    
+
+        # Free passenger List
+        # [0...P-1] are passengers, P is do nothing
+        free_passenger_idx = [num_passengers] # -1 is for do nothing
+        for i in range(num_passengers):
+            if not state[4*num_cars + 5*i+4]: # free if not matched
+                free_passenger_idx.append(i)
 
         # Possible Action size = Num_passengers + 1 (do nothing)
 
@@ -89,30 +96,37 @@ class Full_DQN(Algorithm):
         sample = random.random()
         eps_threshold = self.eps_end + (self.eps_start - self.eps_end) * \
             math.exp(-1. * steps_done / self.eps_decay)
-        self.steps_done += 1
+        self.steps_done += 1 # might not want to change this here or maybe += 1/C
         if sample > eps_threshold:
             with torch.no_grad():
+                # We should check that the passenger is free for the car we are matching
                 # t.max(1) will return largest column value of each row.
                 # second column on max result is index of where max element was
-                # found, so we pick action with the larger expected reward.
-                return self.policy_net(state).max(1)[1].view(1, 1)
-        else:
-            # Pick random free passenger to pick or do nothing
-            free_passenger_idx = [-1] # -1 is for do nothing
-            for i in range(num_passengers):
-                if not state[4*num_cars + 5*i+4]: # free if not matched
-                    free_passenger_idx.append(i)
+                # found, so we pick action with the larger expected reward. 
 
+                # out.shape = (P+1,C)               
+                out = self.policy_net(state)
+
+                # Choose maximum value out of the free passengers or do nothing (idx P)
+                max_val = -9999999999
+                for i in free_passenger_idx:
+                    val = out[i]
+                    if val > max_val
+                        max_index = i
+                        max_val = val
+    
+                action = np.zeros(num_passengers)
+                action[max_index] = 1
+
+                return action
+        else:
             # Now we have a list of free passengers
             idx = random.choice(free_passenger_idx)
 
             # Form action output as OHE
             # Last OHE index == 1 means do nothing
             action = np.zeros(num_passengers+1)
-            if idx == -1:
-                action[num_passengers] = 1
-            else:
-                action[idx] = 1
+            action[idx] = 1
 
             return torch.tensor(action, device=self.device, dtype=torch.long)
 

@@ -46,21 +46,39 @@ class Environment:
 
     # Consider two scenarios
 
-'''
-    def step(self,action,car_index):
-        
-        # Action is P+1 vec
-        #   1. Pair
-        #   2. No action as input
+    # implement this for joint action
+    def step(self,joint_action, Model):
+        info = None 
+        num_cars = self.grid_map.num_cars
+        num_passengers = self.grid_map.num_passengers
 
-        # Set status according to this action
-        
+        # Joint_action is List of length c with each elem vec of length (p+1)
+        # Pairing Step with action
+        for i in range(num_cars):
+            action = joint_action[i]
+            c = self.grid_map.cars[i]
+            p_idx = np.argmax(action)
+
+            # If action is not 'do nothing' then pair if car is free
+            if p_idx != num_passengers and c.status == 'idle':
+                p = grid_map.passengers[p_idx]
+                c.pair_passenger(p)
+                pick_up_path = grid_map.plan_path(c.position, p.pick_up_point)
+                drop_off_path = grid_map.plan_path(p.pick_up_point, p.drop_off_point)
+                c.assign_path(pick_up_path, drop_off_path)
+
+
+        # Next TO-DO        
         # If need to simulate, Simulate (simulator_step) until the next car changes state
             # While no cars change states
             #   simulator_step
 
-    return reward, done
-'''
+     obs = Model.get_state(self.grid_map, 0)
+     # Set indicator to all 0's by turning first element to 0
+     obs[0] = 0
+
+    return obs, reward, done, info
+
     # Small step
     def simulator_step(self):
         for passenger in self.grid_map.passengers:
