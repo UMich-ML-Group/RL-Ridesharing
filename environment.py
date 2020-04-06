@@ -53,6 +53,7 @@ class Environment:
     def dqn_step(self, action):
         
         grid_map = self.grid_map
+ 
         cars = grid_map.cars
         passengers = grid_map.passengers
         reward = [0]*len(cars)
@@ -75,7 +76,7 @@ class Environment:
         for i,car in enumerate(cars):
 
             if car.status == 'idle':
-                reward[i] -= 1
+                #reward[i] -= 1
                 continue
 
             # init require step
@@ -98,8 +99,7 @@ class Environment:
                     if car.path:
                         car.required_steps = self.grid_map.map_cost[(car.position, car.path[0])]
 
-        done = False not in [passenger.status == "dropped" for passenger in passengers]        
-                        
+        done = False not in [passenger.status == "dropped" for passenger in passengers]             
         return reward, done
             
 

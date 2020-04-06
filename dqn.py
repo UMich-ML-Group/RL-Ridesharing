@@ -11,6 +11,7 @@ from itertools import count
 from environment import *
 from gridmap import GridMap
 import matplotlib.pyplot as plt
+import copy 
 
 
 
@@ -59,6 +60,7 @@ class DQN_Agent:
     def __init__(self, env, input_size, output_size, hidden_size, batch_size = 128, gamma = .999, eps_start = 0.9, 
                  eps_end = 0.05, eps_decay = 200, target_update = 10, replay_capacity = 10000, num_episodes = 100):
         self.env = env
+        self.orig_env = copy.deepcopy(env)
         self.grid_map = env.grid_map
         self.cars = env.grid_map.cars
         self.num_cars = len(self.cars)
@@ -93,7 +95,7 @@ class DQN_Agent:
         
         self.steps_done = 0
         
-    def get_assignment(self, state, q_values, rand = False):
+    def get_assignment(self, state, q_values = None, rand = False):
         # Given a set of q_values for every car and every posible invidual action, use the hungarian method 
         # to find the best set of actionsor or choose random actions given the constraints of the enviroment 
         
@@ -102,25 +104,25 @@ class DQN_Agent:
         cars_status = list(state[0][2:3*self.num_cars:3])
         pass_status = list(state[0][3*self.num_cars+4::5])
 
-        cars_to_remove = [i for i,car in enumerate(cars_status) if (car != 1 or np.amax(q_values[i]) == q_values[i,-1])]
         pass_to_remove = [i for i,passenger in enumerate(pass_status) if passenger != 1]
-
-        action[cars_to_remove] = self.num_passengers #do nothing
-    
-
-        cars_to_match = [i for i in range(self.num_cars) if i not in cars_to_remove]
         pass_to_match = [i for i in range(self.num_passengers) if i not in pass_to_remove]
 
           
         if rand:
+            cars_to_remove = [i for i,car in enumerate(cars_status) if car != 1] 
+            cars_to_match = [i for i in range(self.num_cars) if i not in cars_to_remove]
+            
             assignments = random.sample(range(len(pass_to_match)+1),len(cars_to_match))
+            
             for i, assig in enumerate(assignments):
                 if assig == len(pass_to_match):
                     action[cars_to_match[i]] = self.num_passengers
                 else:
                     action[cars_to_match[i]] = pass_to_match[assig]
-        else:  
-        
+        else:
+            cars_to_remove = [i for i,car in enumerate(cars_status) if (car != 1 or np.amax(q_values[i]) == q_values[i,-1])]  
+            cars_to_match = [i for i in range(self.num_cars) if i not in cars_to_remove]
+            
             q_filt = q_values[:, :-1]
             q_filt= np.delete(q_filt, cars_to_remove, 0)
             q_filt = np.delete(q_filt, pass_to_remove, 1)
@@ -134,7 +136,8 @@ class DQN_Agent:
             for i in range(len(cars_to_match)):
                 if i not in row_idx:
                     action[cars_to_match[i]] = self.num_passengers
-
+                    
+        action[cars_to_remove] = self.num_passengers #do nothing
         return action.astype(int)
         
         
@@ -143,22 +146,30 @@ class DQN_Agent:
         #Select action with epsilon greedy
               
         sample = random.random()
+        
         eps_threshold = self.eps_end + (self.eps_start - self.eps_end) * \
             math.exp(-1. * self.steps_done / self.eps_decay)
         self.steps_done += 1
-        eps_threshold = 0 # ERASE THIS LINE
+        state = torch.tensor(state, device = self.device, dtype=torch.float).unsqueeze(0)
+        print("Threshold: ", eps_threshold)
+        print("Random: ", sample <= eps_threshold)
         if sample > eps_threshold:
             # Choose best action
             with torch.no_grad():
-                state = torch.tensor(state, device = self.device, dtype=torch.float).unsqueeze(0)
+                
                 self.policy_net.eval() # not sure if right
-                q_values = self.policy_net(state).numpy().reshape(self.num_cars, self.num_passengers + 1) 
+                q_values = self.policy_net(state).cpu().numpy().reshape(self.num_cars, self.num_passengers + 1) 
                 #print("Q values: ", q_values)
                 return self.get_assignment(state, q_values)
         else:
             #Choose random action
-            return self.get_assignment(state, q_values, rand = True)
+            return self.get_assignment(state, rand = True)
+            
 
+
+    def random_action(self, state):
+        return self.get_assignment(state, rand = True)
+    
     def get_state(self):
         # Cars (px, py, 1=matched), Passengers(pickup_x, pickup_y, dest_x, dest_y, 1=matched)
         # Vector Size = 3*C + 5*P 
@@ -183,21 +194,20 @@ class DQN_Agent:
     
     def train(self):
         
-        env = self.env
-        cars = self.cars
-        passengers = self.passengers
         
         for episode in range(self.num_episodes):
-            self.reset() 
+            #self.reset() 
+            self.reset_orig_env()
             state = self.get_state()
 
             for t in count():
 
                 action = self.select_action(state)
+                #action = self.random_action([state])
                     
-                reward, done = env.dqn_step(action)
+                reward, done = self.env.dqn_step(action)
                 
-                # print("Action: ", action)
+                #print("Action: ", action)
                 # print("Reward: ", reward)
                 # print("Done: ", done)
                 # print(self.grid_map)
@@ -242,6 +252,14 @@ class DQN_Agent:
         self.grid_map = self.env.grid_map
         self.cars = self.env.grid_map.cars
         self.passengers = self.env.grid_map.passengers
+        
+    def reset_orig_env(self):
+
+        self.env = copy.deepcopy(self.orig_env)
+        self.grid_map = self.env.grid_map
+        self.cars = self.env.grid_map.cars
+        self.passengers = self.env.grid_map.passengers
+        
            
 
     def optimize_model(self):
@@ -268,7 +286,7 @@ class DQN_Agent:
         # columns of actions taken. These are the actions which would've been taken
         # for each batch state according to policy_net
 
-
+        self.policy_net.train()
         state_action_values = self.policy_net(state_batch).view(self.batch_size, self.num_cars, self.num_passengers + 1).gather(2, action_batch.unsqueeze(2)).squeeze()
         
 
@@ -277,10 +295,10 @@ class DQN_Agent:
         # on the "older" target_net; selecting their best reward with max(1)[0].
         # This is merged based on the mask, such that we'll have either the expected
         # state value or 0 in case the state was final.
+        self.target_net.train()
+        
         next_state_action_values = torch.zeros((self.batch_size, self.num_cars), device=self.device)
-        #self.policy_net(state).numpy().reshape(self.num_cars, self.num_passengers + 1) 
         next_q_values = self.target_net(non_final_next_states).view(non_final_next_states.size()[0], self.num_cars, self.num_passengers + 1) 
-
 
         next_action_batch = self.get_best_batch_actions(non_final_next_states, next_q_values).squeeze()
         next_state_action_values[non_final_mask] = next_q_values.gather(2, next_action_batch.unsqueeze(2)).squeeze().detach()
@@ -301,7 +319,7 @@ class DQN_Agent:
     def get_best_batch_actions(self, states, q_values):
         actions = np.zeros((q_values.size()[0], self.num_cars))
         for i,(state,q) in enumerate(zip(states,q_values)):
-            q_value = q.detach().numpy().reshape(self.num_cars, self.num_passengers + 1) 
+            q_value = q.detach().cpu().numpy().reshape(self.num_cars, self.num_passengers + 1) 
             actions[i] = self.get_assignment(state.unsqueeze(0), q_value)      
         return torch.tensor(actions, device = self.device, dtype=torch.long)
 
@@ -317,9 +335,9 @@ class DQN_Agent:
         plt.savefig("Loss_history")
 
 if __name__ == '__main__':
-    num_cars = 50
-    num_passengers = 20
-    grid_map = GridMap(1, (100,100), num_cars, num_passengers)
+    num_cars = 2
+    num_passengers = 2
+    grid_map = GridMap(1, (10,10), num_cars, num_passengers)
     cars = grid_map.cars
     passengers = grid_map.passengers
     env = Environment(grid_map)
