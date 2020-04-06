@@ -20,6 +20,14 @@ class GridMap:
         self.add_cars(num_cars)
         self.init_map_cost()
 
+    def reset(self):
+        self.seed = random.seed() # Actually random now
+        self.cars = []
+        self.passengers = []
+        self.add_passenger(self.num_passengers)
+        self.add_cars(self.num_cars)
+        self.init_map_cost()
+
     def __repr__(self):
         message = 'cls:' + type(self).__name__ + \
                 ', size:' + str(self.size) + ', seed:' + str(self.seed )+ '\n'

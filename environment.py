@@ -1,13 +1,19 @@
-
-
+import numpy as np
 from algorithm import PairAlgorithm
 
 class Environment:
 
     def __init__(self, grid_map):
         self.grid_map = grid_map
-        self.algorithm = PairAlgorithm()
+        self.prev_num_cars_idle = self.grid_map.num_cars
+        #self.algorithm = PairAlgorithm()
 
+    def reset(self):
+        self.grid_map.reset()
+        self.prev_num_cars_idle = self.grid_map.num_cars
+
+
+    '''
     def step(self):
         # pairing
         # Status changed here
@@ -41,10 +47,16 @@ class Environment:
                     car.move()
                     if car.path:
                         car.required_steps = self.grid_map.map_cost[(car.position, car.path[0])]
+    '''
 
+    # Get number of idle cars in env
+    def get_number_idle_cars(self):
+        num_idle = 0
+        for car in self.grid_map.cars:
+            if car.status == 'idle':
+                num_idle += 1
+        return num_idle
 
-
-    # Consider two scenarios
 
     # implement this for joint action
     def step(self,joint_action, Model):
@@ -61,29 +73,65 @@ class Environment:
 
             # If action is not 'do nothing' then pair if car is free
             if p_idx != num_passengers and c.status == 'idle':
-                p = grid_map.passengers[p_idx]
+                p = self.grid_map.passengers[p_idx]
                 c.pair_passenger(p)
-                pick_up_path = grid_map.plan_path(c.position, p.pick_up_point)
-                drop_off_path = grid_map.plan_path(p.pick_up_point, p.drop_off_point)
+                pick_up_path = self.grid_map.plan_path(c.position, p.pick_up_point)
+                drop_off_path = self.grid_map.plan_path(p.pick_up_point, p.drop_off_point)
                 c.assign_path(pick_up_path, drop_off_path)
 
 
-        # Next TO-DO        
-        # If need to simulate, Simulate (simulator_step) until the next car changes state
-            # While no cars change states
-            #   simulator_step
+        # Simulation step       
+        # If need to simulate, Simulate (simulator_step) until the next car changes to idle
+        num_cars_idle = self.get_number_idle_cars()
+        need_to_simulate = num_cars_idle != self.prev_num_cars_idle # Is this right
+        reward = 0
+        done = False
+        info = None
 
-     obs = Model.get_state(self.grid_map, 0)
-     # Set indicator to all 0's by turning first element to 0
-     obs[0] = 0
+        # Check if simulation needed at all
+        if need_to_simulate:
+            sim_count = 0
+            passengers_finishing = []
 
-    return obs, reward, done, info
+            # While no cars finish trips, simulate
+            while num_cars_idle == self.prev_num_cars_idle:
+                # If any passengers are about to finish, keep track of them for reward
+                for c in self.grid_map.cars:
+                    if c.p is not None:
+                        if c.p.status == 'picked_up' and c.required_steps == 1:
+                            passengers_finishing.append(c.p)
+                
+                # Simulator Step and update params
+                self.simulator_step()
+                self.prev_num_cars_idle = num_cars_idle
+                num_cars_idle = self.get_number_idle_cars()
+                sim_count+=1
+                print('sim count: ' + str(sim_count))
+
+
+            # Finished simulation steps
+            # Get Reward from number of passenger waiting steps if passengers finished trip
+            gamma = .001
+            for p in passengers_finishing:
+                reward += 1 - gamma * p.waiting_steps
+
+            # Figure out if done simulating
+            done = True
+            for p in self.grid_map.passengers:
+                if p.status != 'dropped':
+                    done = False
+
+        obs = Model.get_state(self.grid_map, 0)
+        # Set indicator to all 0's by turning first element to 0
+        obs[0] = 0
+
+        return obs, reward, done, info
 
     # Small step
     def simulator_step(self):
         for passenger in self.grid_map.passengers:
-                if passenger.status == 'wait_pair' or passenger.status == 'wait_pick':
-                    passenger.waiting_steps += 1
+            if passenger.status == 'wait_pair' or passenger.status == 'wait_pick':
+                passenger.waiting_steps += 1
 
             # move car according to status
             for car in self.grid_map.cars:

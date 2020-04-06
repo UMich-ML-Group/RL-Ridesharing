@@ -1,6 +1,7 @@
 import numpy as np
 import random
-from itertools import count
+import math
+#from itertools import count
 from collections import namedtuple
 
 import torch
@@ -23,7 +24,7 @@ class ReplayMemory:
         self.memory = []
         self.position = 0
 
-    def push(self, trainsition):
+    def push(self, *args):
         #Saves a transition
         if len(self.memory) < self.capacity:
             self.memory.append(None)
@@ -54,7 +55,7 @@ class DQN(nn.Module):
 
 
 class Full_DQN():
-    def __init__(self):
+    def __init__(self, env):
         self.batch_size = 128
         self.gamma = 0.999
         self.eps_start = 0.9
@@ -63,9 +64,9 @@ class Full_DQN():
         self.target_update = 10
         self.replay_capacity = 10000
         # Sizes to be determined
-        self.state_size = 1
-        self.action_size = 1
-        self.hidden_size = 1
+        self.state_size = 4*env.grid_map.num_cars + 5*(env.grid_map.num_passengers)
+        self.action_size = env.grid_map.num_passengers+1
+        self.hidden_size = 200
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -95,7 +96,7 @@ class Full_DQN():
         # if car does not have passenger
         sample = random.random()
         eps_threshold = self.eps_end + (self.eps_start - self.eps_end) * \
-            math.exp(-1. * steps_done / self.eps_decay)
+            math.exp(-1. * self.steps_done / self.eps_decay)
         self.steps_done += 1 # might not want to change this here or maybe += 1/C
         if sample > eps_threshold:
             with torch.no_grad():
@@ -105,30 +106,31 @@ class Full_DQN():
                 # found, so we pick action with the larger expected reward. 
 
                 # out.shape = (P+1,C)               
-                out = self.policy_net(state)
+                #out = self.policy_net(torch.tensor(state, device=self.device)) #, dtype=torch.long))
+                out = self.policy_net(torch.tensor(state.T, device=self.device, dtype=torch.float))
 
                 # Choose maximum value out of the free passengers or do nothing (idx P)
                 max_val = -9999999999
                 for i in free_passenger_idx:
                     val = out[i]
-                    if val > max_val
+                    if val > max_val:
                         max_index = i
                         max_val = val
     
-                action = np.zeros(num_passengers)
+                action = np.zeros((num_passengers+1,1))
                 action[max_index] = 1
 
-                return action
+                return torch.tensor(action, device=self.device, dtype=torch.float)
         else:
             # Now we have a list of free passengers
             idx = random.choice(free_passenger_idx)
 
             # Form action output as OHE
             # Last OHE index == 1 means do nothing
-            action = np.zeros(num_passengers+1)
+            action = np.zeros((num_passengers+1,1))
             action[idx] = 1
 
-            return torch.tensor(action, device=self.device, dtype=torch.long)
+            return torch.tensor(action, device=self.device, dtype=torch.float)
 
             #return torch.tensor([[random.randrange(self.action_size)]], device=device, dtype=torch.long)
 
@@ -140,18 +142,18 @@ class Full_DQN():
         passengers = grid_map.passengers
 
         # Indicator for Which car is now free
-        indicator = np.zeros(len(cars))
+        indicator = np.zeros((len(cars),1))
         indicator[car_index] = 1
 
         # Encode information about cars
-        cars_vector = np.zeros(3*len(cars))
+        cars_vector = np.zeros((3*len(cars),1))
         for i in range(len(cars)):
             cars_vector[3*i]   = cars[i].position[0]
             cars_vector[3*i+1] = cars[i].position[1]
             cars_vector[3*i+2] = 1 if cars[i].passenger is not None else 0
 
         # Encode information about passengers
-        passengers_vector = np.zeros(5*len(passengers))
+        passengers_vector = np.zeros((5*len(passengers),1))
         for i in range(len(passengers)):
             passengers_vector[5*i]   = passengers[i].pick_up_point[0]
             passengers_vector[5*i+1] = passengers[i].pick_up_point[1]
@@ -167,6 +169,7 @@ class Full_DQN():
         # TODO return reward and next_state
         pass
 
+    '''
     def step(self, grid_map):
         cars = grid_map.cars
         for c in cars:
@@ -182,6 +185,52 @@ class Full_DQN():
 
         # TODO update/train q network
         self.update_network.train()
+    '''
+
+
+    def optimize_model(self):
+        if len(self.memory) < self.batch_size:
+            return
+        transitions = self.memory.sample(self.batch_size)
+        # Transpose the batch (see https://stackoverflow.com/a/19343/3343043 for
+        # detailed explanation). This converts batch-array of Transitions
+        # to Transition of batch-arrays.
+        batch = Transition(*zip(*transitions))
+
+        # Compute a mask of non-final states and concatenate the batch elements
+        # (a final state would've been the one after which simulation ended)
+        non_final_mask = torch.tensor(tuple(map(lambda s: s is not None,
+                                            batch.next_state)), device=device, dtype=torch.bool)
+        non_final_next_states = torch.cat([s for s in batch.next_state
+                                                    if s is not None])
+        state_batch = torch.cat(batch.state)
+        action_batch = torch.cat(batch.action)
+        reward_batch = torch.cat(batch.reward)
+
+        # Compute Q(s_t, a) - the model computes Q(s_t), then we select the
+        # columns of actions taken. These are the actions which would've been taken
+        # for each batch state according to policy_net
+        state_action_values = self.policy_net(state_batch).gather(1, action_batch)
+
+        # Compute V(s_{t+1}) for all next states.
+        # Expected values of actions for non_final_next_states are computed based
+        # on the "older" target_net; selecting their best reward with max(1)[0].
+        # This is merged based on the mask, such that we'll have either the expected
+        # state value or 0 in case the state was final.
+        next_state_values = torch.zeros(self.batch_size, device=device)
+        next_state_values[non_final_mask] = self.target_net(non_final_next_states).max(1)[0].detach()
+        # Compute the expected Q values
+        expected_state_action_values = (next_state_values * self.gamma) + reward_batch
+
+        # Compute Huber loss
+        loss = F.smooth_l1_loss(state_action_values, expected_state_action_values.unsqueeze(1))
+
+        # Optimize the model
+        self.optimizer.zero_grad()
+        loss.backward()
+        for param in self.policy_net.parameters():
+            param.grad.data.clamp_(-1, 1)
+        self.optimizer.step()
 
 
 if __name__ == '__main__':
