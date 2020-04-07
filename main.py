@@ -32,6 +32,7 @@ def main():
             print('step cost:', step_count)
             break
 '''
+
 def main():
     # Initialize env
     grid_map = GridMap(1, (7,7), 3, 3)
@@ -40,6 +41,10 @@ def main():
     num_passengers = env.grid_map.num_passengers
 
     Model = Full_DQN(env)
+
+    episode_durations = []
+
+    reward_sum = 0
 
     num_episodes= 50 # maybe increase this to about 300 later
     for i_episode in range(num_episodes):
@@ -66,8 +71,10 @@ def main():
 
             next_state, reward, done, _ = env.step(joint_action, Model)
 
+            
             reward_sum += reward
-            print(reward_sum)
+            print('reward sum: ' + str(reward_sum))
+            
 
             #next_state = torch.tensor(next_state.T, dtype=torch.float)
             #state = torch.tensor(state.T, dtype=torch.float)
@@ -94,11 +101,13 @@ def main():
 
             if done:
                 episode_durations.append(t + 1)
-                plot_durations()
+                #plot_durations()
                 break
+        '''
         # Update the target network, copying all weights and biases in DQN
-        if i_episode % TARGET_UPDATE == 0:
-            target_net.load_state_dict(policy_net.state_dict())
+        if i_episode % Model.target_update == 0:
+            Model.target_net.load_state_dict(Model.policy_net.state_dict())
+        '''
 
     print('Complete')
 

@@ -10,7 +10,7 @@ class Environment:
 
     def reset(self):
         self.grid_map.reset()
-        self.prev_num_cars_idle = self.grid_map.num_cars
+        self.prev_num_cars_idle = self.grid_map.num_cars+1#+1 to get it to start simulating
 
 
     '''
@@ -54,12 +54,16 @@ class Environment:
         num_idle = 0
         for car in self.grid_map.cars:
             if car.status == 'idle':
+                #print('car idle')
                 num_idle += 1
+            #else:
+                #print('car not idle')
         return num_idle
 
 
     # implement this for joint action
     def step(self,joint_action, Model):
+        print('step')
         info = None 
         num_cars = self.grid_map.num_cars
         num_passengers = self.grid_map.num_passengers
@@ -83,7 +87,16 @@ class Environment:
         # Simulation step       
         # If need to simulate, Simulate (simulator_step) until the next car changes to idle
         num_cars_idle = self.get_number_idle_cars()
-        need_to_simulate = num_cars_idle != self.prev_num_cars_idle # Is this right
+        print('num idle: ' + str(num_cars_idle))
+        #need_to_simulate = num_cars_idle != self.prev_num_cars_idle # Is this right
+        need_to_simulate=True
+        # 2 scenarios.
+        # 1. Don't need any simulation step
+        # 2. We need simulation step - at least 1 pass hasnt been served and at least 1 available car
+        
+        # 
+
+        #need_to_simulate = num_cars_idle == 0 # not right
         reward = 0
         done = False
         info = None
@@ -92,14 +105,21 @@ class Environment:
         if need_to_simulate:
             sim_count = 0
             passengers_finishing = []
-
             # While no cars finish trips, simulate
-            while num_cars_idle == self.prev_num_cars_idle:
+            # while num_cars_idle == self.prev_num_cars_idle:
+            # while num_cars_idle == 0: # not right
+
+            need_to_simulate = True
+
+            # Keep running simulate step
+            #while num_cars_idle == self.prev_num_cars_idle:
+            while need_to_simulate:
+
                 # If any passengers are about to finish, keep track of them for reward
                 for c in self.grid_map.cars:
-                    if c.p is not None:
-                        if c.p.status == 'picked_up' and c.required_steps == 1:
-                            passengers_finishing.append(c.p)
+                    if c.passenger is not None:
+                        if c.passenger.status == 'picked_up' and c.required_steps == 1:
+                            passengers_finishing.append(c.passenger)
                 
                 # Simulator Step and update params
                 self.simulator_step()
@@ -107,19 +127,24 @@ class Environment:
                 num_cars_idle = self.get_number_idle_cars()
                 sim_count+=1
                 print('sim count: ' + str(sim_count))
+                need_to_simulate = num_cars_idle == self.prev_num_cars_idle
 
+            #self.prev_num_cars_idle = self.get_number_idle_cars()
 
             # Finished simulation steps
             # Get Reward from number of passenger waiting steps if passengers finished trip
             gamma = .001
             for p in passengers_finishing:
-                reward += 1 - gamma * p.waiting_steps
+                reward += 1 - (gamma * p.waiting_steps)
 
             # Figure out if done simulating
             done = True
+            num_remaining=0
             for p in self.grid_map.passengers:
                 if p.status != 'dropped':
+                    num_remaining+=1
                     done = False
+            print('num pass remaining: ' + str(num_remaining))
 
         obs = Model.get_state(self.grid_map, 0)
         # Set indicator to all 0's by turning first element to 0
