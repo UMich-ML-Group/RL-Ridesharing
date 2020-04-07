@@ -46,11 +46,12 @@ def main():
 
     reward_sum = 0
 
-    num_episodes= 50 # maybe increase this to about 300 later
+    num_episodes= 10 # maybe increase this to about 300 later
     for i_episode in range(num_episodes):
 
         # Initialize the environment
         env.reset()
+        reward_sum = 0
 
         for t in count():
             print('t: ' + str(t) )
