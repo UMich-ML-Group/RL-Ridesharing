@@ -26,7 +26,6 @@ class GridMap:
         self.passengers = []
         self.add_passenger(self.num_passengers)
         self.add_cars(self.num_cars)
-        self.init_map_cost()
 
     def __repr__(self):
         message = 'cls:' + type(self).__name__ + \

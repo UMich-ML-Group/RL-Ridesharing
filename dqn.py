@@ -107,12 +107,13 @@ class Full_DQN():
 
                 # out.shape = (P+1,C)               
                 #out = self.policy_net(torch.tensor(state, device=self.device)) #, dtype=torch.long))
+                self.policy_net.eval()
                 out = self.policy_net(torch.tensor(state.T, device=self.device, dtype=torch.float))
 
                 # Choose maximum value out of the free passengers or do nothing (idx P)
                 max_val = -9999999999
                 for i in free_passenger_idx:
-                    val = out[i]
+                    val = out[0,i]
                     if val > max_val:
                         max_index = i
                         max_val = val
@@ -200,24 +201,25 @@ class Full_DQN():
         # Compute a mask of non-final states and concatenate the batch elements
         # (a final state would've been the one after which simulation ended)
         non_final_mask = torch.tensor(tuple(map(lambda s: s is not None,
-                                            batch.next_state)), device=device, dtype=torch.bool)
+                                            batch.next_state)), device=self.device, dtype=torch.bool)
         non_final_next_states = torch.cat([s for s in batch.next_state
                                                     if s is not None])
-        state_batch = torch.cat(batch.state)
-        action_batch = torch.cat(batch.action)
-        reward_batch = torch.cat(batch.reward)
+        state_batch = torch.cat(batch.state)#.long()
+        action_batch = torch.cat(batch.action)#.long()
+        reward_batch = torch.cat(batch.reward)#.long()
 
         # Compute Q(s_t, a) - the model computes Q(s_t), then we select the
         # columns of actions taken. These are the actions which would've been taken
         # for each batch state according to policy_net
         state_action_values = self.policy_net(state_batch).gather(1, action_batch)
+        #state_action_values = torch.tensor(np.zeros((3,1)), device=self.device, dtype=torch.float)
 
         # Compute V(s_{t+1}) for all next states.
         # Expected values of actions for non_final_next_states are computed based
         # on the "older" target_net; selecting their best reward with max(1)[0].
         # This is merged based on the mask, such that we'll have either the expected
         # state value or 0 in case the state was final.
-        next_state_values = torch.zeros(self.batch_size, device=device)
+        next_state_values = torch.zeros(self.batch_size, device=self.device)
         next_state_values[non_final_mask] = self.target_net(non_final_next_states).max(1)[0].detach()
         # Compute the expected Q values
         expected_state_action_values = (next_state_values * self.gamma) + reward_batch

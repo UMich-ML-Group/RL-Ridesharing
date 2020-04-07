@@ -6,6 +6,8 @@ from gridmap import GridMap
 from environment import Environment
 from dqn import Full_DQN
 from itertools import count
+import torch
+import numpy as np
 
 
 '''
@@ -63,6 +65,13 @@ def main():
             state[0] = 0
 
             next_state, reward, done, _ = env.step(joint_action, Model)
+
+            reward_sum += reward
+            print(reward_sum)
+
+            #next_state = torch.tensor(next_state.T, dtype=torch.float)
+            #state = torch.tensor(state.T, dtype=torch.float)
+
             #reward = torch.tensor([reward], device=device)
 
             # Store the transition in memory for each car
@@ -70,7 +79,10 @@ def main():
                 action = joint_action[i]
                 state_i = state
                 state_i[i] = 1
-                Model.memory.push(state_i, action, next_state, reward)
+                state_i_tensor = torch.tensor(state_i.T, dtype=torch.float)
+                next_state_tensor = torch.tensor(next_state.T, dtype=torch.float)
+                reward_tensor = torch.tensor(np.array([reward]), dtype=torch.float)
+                Model.memory.push(state_i_tensor, action, next_state_tensor, reward_tensor)
 
             # Maybe change this to memory of single actions
 
@@ -78,7 +90,8 @@ def main():
             state = next_state
 
             # Perform one step of the optimization (on the target network)
-            Model.optimize_model()
+            # Model.optimize_model()
+
             if done:
                 episode_durations.append(t + 1)
                 plot_durations()
