@@ -71,10 +71,8 @@ def main():
 
             next_state, reward, done, _ = env.step(joint_action, Model)
 
-            
             reward_sum += reward
             print('reward sum: ' + str(reward_sum))
-            
 
             #next_state = torch.tensor(next_state.T, dtype=torch.float)
             #state = torch.tensor(state.T, dtype=torch.float)
@@ -89,7 +87,7 @@ def main():
                 state_i_tensor = torch.tensor(state_i.T, dtype=torch.float)
                 next_state_tensor = torch.tensor(next_state.T, dtype=torch.float)
                 reward_tensor = torch.tensor(np.array([reward]), dtype=torch.float)
-                Model.memory.push(state_i_tensor, action, next_state_tensor, reward_tensor)
+                Model.memory.push(state_i_tensor, action.T, next_state_tensor, reward_tensor)
 
             # Maybe change this to memory of single actions
 
@@ -97,7 +95,7 @@ def main():
             state = next_state
 
             # Perform one step of the optimization (on the target network)
-            # Model.optimize_model()
+            Model.optimize_model()
 
             if done:
                 episode_durations.append(t + 1)

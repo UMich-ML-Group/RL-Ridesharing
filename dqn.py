@@ -105,7 +105,7 @@ class Full_DQN():
                 # second column on max result is index of where max element was
                 # found, so we pick action with the larger expected reward. 
 
-                # out.shape = (P+1,C)               
+                # out.shape = (P+1,C)
                 #out = self.policy_net(torch.tensor(state, device=self.device)) #, dtype=torch.long))
                 self.policy_net.eval()
                 out = self.policy_net(torch.tensor(state.T, device=self.device, dtype=torch.float))
@@ -204,15 +204,14 @@ class Full_DQN():
                                             batch.next_state)), device=self.device, dtype=torch.bool)
         non_final_next_states = torch.cat([s for s in batch.next_state
                                                     if s is not None])
-        state_batch = torch.cat(batch.state)#.long()
-        action_batch = torch.cat(batch.action)#.long()
-        reward_batch = torch.cat(batch.reward)#.long()
+        state_batch = torch.cat(batch.state).float()
+        action_batch = torch.cat(batch.action).long()
+        reward_batch = torch.cat(batch.reward).float()
 
         # Compute Q(s_t, a) - the model computes Q(s_t), then we select the
         # columns of actions taken. These are the actions which would've been taken
         # for each batch state according to policy_net
         state_action_values = self.policy_net(state_batch).gather(1, action_batch)
-        #state_action_values = torch.tensor(np.zeros((3,1)), device=self.device, dtype=torch.float)
 
         # Compute V(s_{t+1}) for all next states.
         # Expected values of actions for non_final_next_states are computed based
