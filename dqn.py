@@ -225,6 +225,7 @@ class Full_DQN():
 
         # Compute Huber loss
         loss = F.smooth_l1_loss(state_action_values, expected_state_action_values.unsqueeze(1))
+        #print(loss)
 
         # Optimize the model
         self.optimizer.zero_grad()

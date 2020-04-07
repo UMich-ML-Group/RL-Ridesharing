@@ -35,7 +35,7 @@ def main():
 
 def main():
     # Initialize env
-    grid_map = GridMap(1, (7,7), 3, 3)
+    grid_map = GridMap(1, (7,7), 3, 6) # 6 passengers
     env = Environment(grid_map)
     num_cars = env.grid_map.num_cars
     num_passengers = env.grid_map.num_passengers
@@ -46,7 +46,7 @@ def main():
 
     reward_sum = 0
 
-    num_episodes= 10 # maybe increase this to about 300 later
+    num_episodes= 1000 # maybe increase this to about 300 later
     for i_episode in range(num_episodes):
 
         # Initialize the environment
@@ -54,7 +54,7 @@ def main():
         reward_sum = 0
 
         for t in count():
-            print('t: ' + str(t) )
+            # print('t: ' + str(t) )
             # Select an action for each car and accumulate into joint_action
             joint_action = []
 
@@ -64,16 +64,26 @@ def main():
             for c in range(num_cars):
                 state = Model.get_state(env.grid_map, c)
                 action = Model.select_action(state,num_passengers, num_cars)
+
+                # Check if that passenger has already been paired in joint action.
+                # if it has, change action to do nothing (index = num_passengers)
+                p = np.argmax(action)
+                for a in joint_action:
+                    # replace passenger pairing with do nothing if another car has paired to passenger
+                    if np.argmax(a) == p:
+                        action[p] = 0
+                        action[num_passengers] = 1
+
                 joint_action.append(action)
 
-            # State before you step, get rid of indicator
+            # State before step, get rid of indicator
             state = Model.get_state(env.grid_map, 0)
             state[0] = 0
 
             next_state, reward, done, _ = env.step(joint_action, Model)
 
             reward_sum += reward
-            print('reward sum: ' + str(reward_sum))
+            #print('reward sum: ' + str(reward_sum))
 
             #next_state = torch.tensor(next_state.T, dtype=torch.float)
             #state = torch.tensor(state.T, dtype=torch.float)
@@ -100,13 +110,14 @@ def main():
 
             if done:
                 episode_durations.append(t + 1)
+                print('reward sum: ' + str(reward_sum))
                 #plot_durations()
                 break
-        '''
+        #'''
         # Update the target network, copying all weights and biases in DQN
         if i_episode % Model.target_update == 0:
             Model.target_net.load_state_dict(Model.policy_net.state_dict())
-        '''
+        #'''
 
     print('Complete')
 
