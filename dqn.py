@@ -57,8 +57,8 @@ class DQN(nn.Module):
 
 
 class DQN_Agent:
-    def __init__(self, env, input_size, output_size, hidden_size, batch_size = 128, gamma = .999, eps_start = 0.9, 
-                 eps_end = 0.05, eps_decay = 200, target_update = 10, replay_capacity = 10000, num_episodes = 100):
+    def __init__(self, env, input_size, output_size, hidden_size, batch_size = 128, lr = 0.001, gamma = .999, eps_start = 0.9, 
+                 eps_end = 0.05, eps_decay = 200, target_update = 300, replay_capacity = 10000, num_episodes = 2000):
         self.env = env
         self.orig_env = copy.deepcopy(env)
         self.grid_map = env.grid_map
@@ -78,7 +78,9 @@ class DQN_Agent:
         self.replay_capacity = replay_capacity
         self.num_episodes = num_episodes
         self.steps_done = 0
+        self.lr = lr
         self.episode_durations = []
+        self.loss_history = []
         
         self.memory = ReplayMemory(self.replay_capacity)
         
@@ -89,7 +91,8 @@ class DQN_Agent:
         self.target_net.load_state_dict(self.policy_net.state_dict())
         self.target_net.eval()
         
-        self.optimizer = optim.RMSprop(self.policy_net.parameters())
+        #self.optimizer = optim.Adam(self.policy_net.parameters())
+        self.optimizer = optim.RMSprop(self.policy_net.parameters(), lr = self.lr)
         
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
@@ -151,15 +154,21 @@ class DQN_Agent:
             math.exp(-1. * self.steps_done / self.eps_decay)
         self.steps_done += 1
         state = torch.tensor(state, device = self.device, dtype=torch.float).unsqueeze(0)
-        print("Threshold: ", eps_threshold)
-        print("Random: ", sample <= eps_threshold)
+        # ERASE
+        # with torch.no_grad():
+        #     self.policy_net.eval() 
+        #     state_high = [1., 2., 0., 1., 4., 0., 2., 0.]
+        #     state_high = torch.tensor(state_high, device = self.device, dtype=torch.float).unsqueeze(0)
+        #     q_values_high = self.policy_net(state_high).cpu().numpy().reshape(self.num_cars, self.num_passengers + 1) #ERASE
+        #     print("Q_values_high: ",q_values_high) #ERASE
+        
         if sample > eps_threshold:
             # Choose best action
             with torch.no_grad():
                 
                 self.policy_net.eval() # not sure if right
                 q_values = self.policy_net(state).cpu().numpy().reshape(self.num_cars, self.num_passengers + 1) 
-                #print("Q values: ", q_values)
+
                 return self.get_assignment(state, q_values)
         else:
             #Choose random action
@@ -201,32 +210,35 @@ class DQN_Agent:
             state = self.get_state()
 
             for t in count():
-
+                
+                    
                 action = self.select_action(state)
                 #action = self.random_action([state])
-                    
                 reward, done = self.env.dqn_step(action)
+                # if (state[2] == 1):
+                #     print("Action: ", action)
+                #     print("Step: ", t)
+                #     input("Press enter to step")
                 
+                    
+                    
                 #print("Action: ", action)
-                # print("Reward: ", reward)
-                # print("Done: ", done)
-                # print(self.grid_map)
+                #print("Reward: ", reward)
+                #print("Done: ", done)
+                # #print(self.grid_map)
                 # print("Step: ", t)
-                # print("state :", state)
-                
+                #print("State :", state)
                 #input("Press enter to step")
                 #self.grid_map.visualize()
                 
-                if done:
-                    next_state = None
-                else:
-                    next_state = self.get_state()
+
+                next_state = self.get_state()
                     
                  
                                
                 self.memory.push(torch.tensor(state, device = self.device, dtype=torch.float).unsqueeze(0), 
                                  torch.tensor(action, device = self.device, dtype=torch.long).unsqueeze(0), 
-                                 torch.tensor(next_state, device = self.device, dtype=torch.float).unsqueeze(0) if not done else next_state, 
+                                 torch.tensor(next_state, device = self.device, dtype=torch.float).unsqueeze(0) if not done else None, 
                                  torch.tensor(reward, device = self.device, dtype=torch.float).unsqueeze(0) )  
                 
                 # Move to the next state 
@@ -239,10 +251,13 @@ class DQN_Agent:
                 if done:
                     self.episode_durations.append(t + 1)
                     self.plot_durations()
+                    self.plot_loss_history()
                     break         
             
             # Update the target network, copying all weights and biases in DQN
+            print("Episode: ", episode)
             if episode % self.target_update == 0:
+                print("Target_net_updated")
                 self.target_net.load_state_dict(self.policy_net.state_dict())
                 
         print("Finished")  
@@ -259,6 +274,9 @@ class DQN_Agent:
         self.grid_map = self.env.grid_map
         self.cars = self.env.grid_map.cars
         self.passengers = self.env.grid_map.passengers
+        self.grid_map.init_zero_map_cost()
+
+        
         
            
 
@@ -280,41 +298,74 @@ class DQN_Agent:
         state_batch = torch.cat(batch.state)
         action_batch = torch.cat(batch.action)
         reward_batch = torch.cat(batch.reward)
-        
 
+       
+        
         # Compute Q(s_t, a) - the model computes Q(s_t), then we select the
         # columns of actions taken. These are the actions which would've been taken
         # for each batch state according to policy_net
 
-        self.policy_net.train()
-        state_action_values = self.policy_net(state_batch).view(self.batch_size, self.num_cars, self.num_passengers + 1).gather(2, action_batch.unsqueeze(2)).squeeze()
-        
+        #self.policy_net.train()
+        #self.target_net.train()
+        #state_action_values = self.policy_net(state_batch).view(self.batch_size, self.num_cars, self.num_passengers + 1).gather(2, action_batch.unsqueeze(2)).squeeze()
+        state_action_values = self.policy_net(state_batch).gather(1,action_batch)
 
+        #state_action_values = state_action_values# .unsqueeze(1)
+        #print(self.policy_net(state_batch).view(self.batch_size, self.num_cars, self.num_passengers + 1))
+        #print(action_batch.unsqueeze(2))
+        #print(state_action_values)
+        
+        
         # Compute V(s_{t+1}) for all next states.
         # Expected values of actions for non_final_next_states are computed based
         # on the "older" target_net; selecting their best reward with max(1)[0].
         # This is merged based on the mask, such that we'll have either the expected
         # state value or 0 in case the state was final.
-        self.target_net.train()
+        #self.target_net.train()
         
+        #next_state_action_values = torch.zeros((self.batch_size, self.num_cars), device=self.device)
         next_state_action_values = torch.zeros((self.batch_size, self.num_cars), device=self.device)
         next_q_values = self.target_net(non_final_next_states).view(non_final_next_states.size()[0], self.num_cars, self.num_passengers + 1) 
+        #print(self.target_net(non_final_next_states).size())
+        #print(self.target_net(non_final_next_states).max(1)[0].detach().size())
+        #print(self.target_net(non_final_next_states).max(1)[0])
+        
+        non_final_mask = non_final_mask.unsqueeze(1)
 
+        
+        #next_state_action_values[non_final_mask] = self.target_net(non_final_next_states).max(1)[0].detach() # erase
+
+
+        
         next_action_batch = self.get_best_batch_actions(non_final_next_states, next_q_values).squeeze()
-        next_state_action_values[non_final_mask] = next_q_values.gather(2, next_action_batch.unsqueeze(2)).squeeze().detach()
+        #next_action_batch = next_action_batch.unsqueeze(1) # CHANGE LATER
+        # non_final_mask = non_final_mask.unsqueeze(1) # CHANGE LATER
+
+        next_state_action_values[non_final_mask] = next_q_values.gather(2, next_action_batch.view((-1,1,1))).squeeze().detach()
 
         # Compute the expected Q values
         expected_state_action_values = (next_state_action_values * self.gamma) + reward_batch
 
         # Compute Huber loss
+        #loss = F.smooth_l1_loss(state_action_values, expected_state_action_values)
         loss = F.smooth_l1_loss(state_action_values, expected_state_action_values)
+        #print(state_batch)
+        #print(reward_batch)
+        
+
+        self.loss_history.append(loss.item())
 
         # Optimize the model
         self.optimizer.zero_grad()
         loss.backward()
+        
         for param in self.policy_net.parameters():
             param.grad.data.clamp_(-1, 1)
         self.optimizer.step()
+        #for name, param in self.policy_net.named_parameters():
+        #    if param.requires_grad:
+        #        print(name, param.data)
+        #print(loss)
 
     def get_best_batch_actions(self, states, q_values):
         actions = np.zeros((q_values.size()[0], self.num_cars))
@@ -324,20 +375,32 @@ class DQN_Agent:
         return torch.tensor(actions, device = self.device, dtype=torch.long)
 
     def plot_durations(self):
-        print("Saving plot ...")
+        print("Saving durations plot ...")
         plt.figure(2)
         plt.clf()
         durations_t = torch.tensor(self.episode_durations, dtype=torch.float)
-        plt.title('Training...')
+        plt.title('Episode Duration history')
         plt.xlabel('Episode')
         plt.ylabel('Duration')
         plt.plot(durations_t.numpy())
+        plt.savefig("Durations_history")
+        
+    def plot_loss_history(self):
+        print("Saving loss history ...")
+        plt.figure(2)
+        plt.clf()
+        loss = torch.tensor(self.loss_history, dtype=torch.float)
+        plt.title('Loss history')
+        plt.xlabel('Steps')
+        plt.ylabel('Loss')
+        plt.plot(self.loss_history)
         plt.savefig("Loss_history")
 
 if __name__ == '__main__':
-    num_cars = 2
-    num_passengers = 2
-    grid_map = GridMap(1, (10,10), num_cars, num_passengers)
+    num_cars = 1
+    num_passengers = 3
+    
+    grid_map = GridMap(1, (5,5), num_cars, num_passengers)
     cars = grid_map.cars
     passengers = grid_map.passengers
     env = Environment(grid_map)

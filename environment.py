@@ -76,7 +76,7 @@ class Environment:
         for i,car in enumerate(cars):
 
             if car.status == 'idle':
-                #reward[i] -= 1
+                #reward[i] -= 1 uncomment
                 continue
 
             # init require step
@@ -91,7 +91,9 @@ class Environment:
                 car.drop_passenger()
             else:
                 # try to move
-                reward[i] -= 1
+                if car.passenger.status == "wait_pick":
+                    reward[i] -= 1 #uncomment
+                    pass
                 if car.required_steps > 0:  # decrease steps
                     car.required_steps -= 1
                 elif car.required_steps == 0: # move
