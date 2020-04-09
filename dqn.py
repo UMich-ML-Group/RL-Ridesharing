@@ -17,8 +17,6 @@ Transition = namedtuple('Transition',
                         ('state', 'action', 'next_state', 'reward'))
 
 class ReplayMemory:
-    # TODO implement replay buffer
-
     def __init__(self, capacity):
         self.capacity = capacity
         self.memory = []
@@ -39,7 +37,6 @@ class ReplayMemory:
 
 
 class DQN(nn.Module):
-    # TODO implement q network
     def __init__(self, inputs, outputs, hidden):
         super(DQN, self).__init__()
         self.fc1 = nn.Linear(inputs, hidden)
@@ -48,7 +45,6 @@ class DQN(nn.Module):
         #self.bn2 = nn.BatchNorm1d(output)
 
     def forward(self, x):
-        # TODO implement train
         x2 = F.relu(self.bn1(self.fc1(x)))
         out = self.fc2(x2)
         return out
@@ -164,31 +160,6 @@ class Full_DQN():
 
         return np.concatenate((indicator, cars_vector, passengers_vector))
 
-
-    def set_action(self, action, grid_map):
-        # TODO input action vector and set pair result to map
-        # TODO return reward and next_state
-        pass
-
-    '''
-    def step(self, grid_map):
-        cars = grid_map.cars
-        for c in cars:
-
-
-        # TODO implement a step
-        curr_state = self.get_state(grid_map)
-        curr_action = self.get_action(curr_state)
-        reward, next_state = self.set_action(curr_action, grid_map)
-
-        # TODO update replay buffer
-        self.buffer.push((curr_state, curr_state, reward, next_state))
-
-        # TODO update/train q network
-        self.update_network.train()
-    '''
-
-
     def optimize_model(self):
         if len(self.memory) < self.batch_size:
             return
@@ -225,7 +196,7 @@ class Full_DQN():
 
         # Compute Huber loss
         loss = F.smooth_l1_loss(state_action_values, expected_state_action_values.unsqueeze(1))
-        #print(loss)
+        #print('loss:', loss)
 
         # Optimize the model
         self.optimizer.zero_grad()

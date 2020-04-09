@@ -9,30 +9,6 @@ from itertools import count
 import torch
 import numpy as np
 
-
-'''
-# Need to update this to use joint_action 
-def main():
-    grid_map = GridMap(1, (7,7), 3, 3)
-    env = Environment(grid_map)
-    step_count = 0
-    while True:
-        finished = True
-        for p in grid_map.passengers:
-            if p.status != 'dropped':
-              finished = False
-        clear_output()
-        grid_map.visualize()
-        print('-'*10)
-        env.step()
-        # env.step(action)
-        step_count += 1
-        time.sleep(1)
-        if finished:
-            print('step cost:', step_count)
-            break
-'''
-
 def main():
     # Initialize env
     grid_map = GridMap(1, (7,7), 3, 6) # 6 passengers
@@ -44,14 +20,13 @@ def main():
 
     episode_durations = []
 
-    reward_sum = 0
-
     num_episodes= 1000 # maybe increase this to about 300 later
     for i_episode in range(num_episodes):
 
         # Initialize the environment
         env.reset()
         reward_sum = 0
+        sim_step_sum = 0
 
         for t in count():
             # print('t: ' + str(t) )
@@ -80,8 +55,9 @@ def main():
             state = Model.get_state(env.grid_map, 0)
             state[0] = 0
 
-            next_state, reward, done, _ = env.step(joint_action, Model)
+            next_state, reward, done, info = env.step(joint_action, Model)
 
+            sim_step_sum += info['sim_count']
             reward_sum += reward
             #print('reward sum: ' + str(reward_sum))
 
@@ -110,7 +86,7 @@ def main():
 
             if done:
                 episode_durations.append(t + 1)
-                print('reward sum: ' + str(reward_sum))
+                print('reward sum: {:5} step sum: {}'.format(reward_sum, sim_step_sum))
                 #plot_durations()
                 break
         #'''
