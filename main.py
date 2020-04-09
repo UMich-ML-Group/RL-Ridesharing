@@ -8,6 +8,7 @@ from dqn import Full_DQN
 from itertools import count
 import torch
 import numpy as np
+from matplotlib import pyplot as plt
 
 def main():
     # Initialize env
@@ -19,8 +20,9 @@ def main():
     Model = Full_DQN(env)
 
     episode_durations = []
+    total_reward = []
 
-    num_episodes= 1000 # maybe increase this to about 300 later
+    num_episodes= 100 # maybe increase this to about 300 later
     for i_episode in range(num_episodes):
 
         # Initialize the environment
@@ -86,14 +88,19 @@ def main():
 
             if done:
                 episode_durations.append(t + 1)
-                print('reward sum: {:5} step sum: {}'.format(reward_sum, sim_step_sum))
-                #plot_durations()
+                print('episode: {:3}, reward sum: {:.5f}, step sum: {}'.format(i_episode, reward_sum, sim_step_sum))
+                total_reward.append(reward_sum)
                 break
         #'''
         # Update the target network, copying all weights and biases in DQN
         if i_episode % Model.target_update == 0:
             Model.target_net.load_state_dict(Model.policy_net.state_dict())
         #'''
+
+        plt.plot(total_reward)
+        plt.xlabel('Episodes')
+        plt.ylabel('Reward')
+        plt.savefig('reward.png')
 
     print('Complete')
 
