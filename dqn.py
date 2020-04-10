@@ -10,6 +10,7 @@ from collections import namedtuple
 from itertools import count
 from environment import *
 from gridmap import GridMap
+from algorithm import *
 import matplotlib.pyplot as plt
 import copy 
 
@@ -45,20 +46,19 @@ class DQN(nn.Module):
         super(DQN, self).__init__()
 
         self.fc1 = nn.Linear(inputs, hidden)
-        self.bn1 = nn.BatchNorm1d(hidden)
         self.fc2 = nn.Linear(hidden,outputs)
         #self.bn2 = nn.BatchNorm1d(output)
 
     def forward(self, x):
         # TODO implement train
-        x2 = F.relu(self.bn1(self.fc1(x)))
+        x2 = F.relu(self.fc1(x))
         out = self.fc2(x2)
         return out
 
 
 class DQN_Agent:
-    def __init__(self, env, input_size, output_size, hidden_size, batch_size = 3, lr = 0.001, gamma = .999, eps_start = 0.9, 
-                 eps_end = 0.05, eps_decay = 200, target_update = 1000, replay_capacity = 10000, num_episodes = 10000):
+    def __init__(self, env, input_size, output_size, hidden_size, batch_size = 128, lr = 0.001, gamma = .999, eps_start = 0.9, 
+                 eps_end = 0.05, eps_decay = 2500,  replay_capacity = 10000, num_save = 200, num_episodes = 10000, shared=False, training = False, load_file = None):
         self.env = env
         self.orig_env = copy.deepcopy(env)
         self.grid_map = env.grid_map
@@ -74,31 +74,41 @@ class DQN_Agent:
         self.eps_start = eps_start
         self.eps_end = eps_end
         self.eps_decay = eps_decay
-        self.target_update = target_update
         self.replay_capacity = replay_capacity
         self.num_episodes = num_episodes
         self.steps_done = 0
         self.lr = lr
+        self.shared = shared
+        self.num_save = num_save
+        self.training = training
+        self.algorithm = PairAlgorithm()
         self.episode_durations = []
         self.loss_history = []
         
         self.memory = ReplayMemory(self.replay_capacity)
         
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        print("Device being used:", self.device)
         self.policy_net = DQN(self.input_size, self.output_size , self.hidden_size).to(self.device)
-        self.target_net = DQN(self.input_size, self.output_size, self.hidden_size).to(self.device)
         
-        self.target_net.load_state_dict(self.policy_net.state_dict())
-        self.target_net.eval()
         
-        #self.optimizer = optim.Adam(self.policy_net.parameters())
+        if load_file:
+            self.policy_net.load_state_dict(torch.load(load_file))
+            self.policy_net.eval()
+            self.load_file = "Trained_" + load_file
+            print("Checkpoint loaded")
+        else:
+            if self.shared: 
+                pre = "shared_"
+            else:
+                pre = "unshared_"
+            
+            self.load_file = pre + "model_num_cars_" + str(self.num_cars) + "_num_passengers_" + str(self.num_passengers) + \
+                    "_num_episodes_" + str(self.num_episodes) + "_hidden_size_" + str(self.hidden_size) + ".pth"
+            
         self.optimizer = optim.RMSprop(self.policy_net.parameters(), lr = self.lr)
+
         
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        
-        self.steps_done = 0
-        
-    
 
     def select_action(self,state):
         #Select action with epsilon greedy
@@ -106,7 +116,11 @@ class DQN_Agent:
         
         eps_threshold = self.eps_end + (self.eps_start - self.eps_end) * \
             math.exp(-1. * self.steps_done / self.eps_decay)
+
         self.steps_done += 1
+        
+        if not self.training:
+            eps_threshold = 0.0
 
         if sample > eps_threshold:
             # Choose best action
@@ -148,32 +162,49 @@ class DQN_Agent:
     
     def train(self):
         
+        duration_sum = 0.0
+        
         for episode in range(self.num_episodes):
             
-            #self.reset() 
-            self.reset_orig_env()
+            self.reset() 
+            #self.reset_orig_env()
             
             state = self.get_state()  
             
-            action = self.select_action(state)
-            ction = self.random_action([state])
+            #action = self.select_action(state)
+            #action = self.random_action([state])
+            action = [self.algorithm.greedy_fcfs(self.grid_map)]
             
-            reward, duration = self.env.dqn_step(action)
             
-            self.memory.push(state, action, torch.tensor(reward, device = self.device, dtype=torch.float).unsqueeze(0))  
+            reward, duration = self.env.step(action, shared = self.shared)
             
-            self.optimize_model()
+            duration_sum += duration
             
+            if self.training:
+                self.memory.push(state, action, torch.tensor(reward, device = self.device, dtype=torch.float).unsqueeze(0))  
+                self.optimize_model()
+
+                        
             self.episode_durations.append(duration)
-            self.plot_durations()
-            self.plot_loss_history()
+            
+            if self.training:
+                self.plot_durations("rl_shared")
+                self.plot_loss_history("rl_shared")
+            
+            if self.training and episode % self.num_save == 0:
+                torch.save(self.policy_net.state_dict(), "episode_" + str(episode) + self.load_file )
+                print("Checkpoint saved")
+            #self.plot_durations()
+            #self.plot_loss_history()
                     
-            # Update the target network, copying all weights and biases in DQN
             print("Episode: ", episode)
-            if episode % self.target_update == 0:
-                print("Target_net_updated")
-                self.target_net.load_state_dict(self.policy_net.state_dict())
-                
+
+           
+        if self.training:
+            torch.save(self.policy_net.state_dict(), self.load_file )
+            print("Checkpoint saved")
+            
+        print("Average duration was ", duration_sum/self.num_episodes)
         print("Finished")  
             
     def reset(self):
@@ -195,6 +226,7 @@ class DQN_Agent:
     def optimize_model(self):
         if len(self.memory) < self.batch_size:
             return
+        
         transitions = self.memory.sample(self.batch_size)
         batch = Transition(*zip(*transitions))
     
@@ -212,6 +244,7 @@ class DQN_Agent:
         # Compute Huber loss
         loss = F.smooth_l1_loss(state_action_values, expected_state_action_values)
 
+
         self.loss_history.append(loss.item())
 
         # Optimize the model
@@ -224,7 +257,7 @@ class DQN_Agent:
 
 
 
-    def plot_durations(self):
+    def plot_durations(self, filename):
         print("Saving durations plot ...")
         plt.figure(2)
         plt.clf()
@@ -233,34 +266,37 @@ class DQN_Agent:
         plt.xlabel('Episode')
         plt.ylabel('Duration')
         plt.plot(durations_t.numpy())
-        plt.savefig("Durations_history")
+        np.save("Duration_"+filename, durations_t.numpy())
+        plt.savefig("Durations_history_" + filename)
         
-    def plot_loss_history(self):
+    def plot_loss_history(self, filename):
         print("Saving loss history ...")
         plt.figure(2)
         plt.clf()
         loss = torch.tensor(self.loss_history, dtype=torch.float)
         plt.title('Loss history')
-        plt.xlabel('Steps')
+        plt.xlabel('Episodes')
         plt.ylabel('Loss')
         plt.plot(self.loss_history)
-        plt.savefig("Loss_history")
+        plt.savefig("Loss_history_" + filename)
 
 if __name__ == '__main__':
-    num_cars = 3
-    num_passengers = 4
+    num_cars = 8
+    num_passengers = 8
     
-    grid_map = GridMap(1, (7,7), num_cars, num_passengers)
+    grid_map = GridMap(1, (100,100), num_cars, num_passengers)
     cars = grid_map.cars
     passengers = grid_map.passengers
     env = Environment(grid_map)
-    
-    #print('path from (0,0) to (5,5):')
-    #path = m.plan_path((0,0),(5,5))
-    #sprint(path)
-    #m.visualize()
+
+
     input_size = 2*num_cars + 4*num_passengers # cars (px, py), passengers(pickup_x, pickup_y, dest_x, dest_y)
     output_size = num_cars * num_passengers  # num_cars * (num_passengers + 1)
     hidden_size = 100
-    agent = DQN_Agent(env, input_size, output_size, hidden_size)
+    load_file = "unshared_model_num_cars_3_num_passengers_3_num_episodes_100000_hidden_size_100.pth"
+    load_file = None
+    agent = DQN_Agent(env, input_size, output_size, hidden_size, load_file = load_file,lr=0.001, num_episodes=1000, shared = False, training = False)
     agent.train()
+    # durations = np.load("Duration_rl_2.npy")
+    # print(np.mean(durations[-2000:]))
+    # print(durations[-10:])

@@ -12,21 +12,19 @@ class PairAlgorithm:
     def greedy_fcfs(self, grid_map):
         passengers = grid_map.passengers
         cars = grid_map.cars
-        for p in passengers:
+        action = [0]*len(passengers)
+        for i, p in enumerate(passengers):
             min_dist = math.inf
             assigned_car = None
-            if p.status == 'wait_pair':
-                for c in cars:
-                    if c.status == 'idle':
-                        dist = Util.cal_dist(p.pick_up_point, c.position)
-                        if dist < min_dist:
-                            min_dist = dist
-                            assigned_car = c
-                if assigned_car is not None:
-                    assigned_car.pair_passenger(p)
-                    pick_up_path = grid_map.plan_path(assigned_car.position, p.pick_up_point)
-                    drop_off_path = grid_map.plan_path(p.pick_up_point, p.drop_off_point)
-                    assigned_car.assign_path(pick_up_path, drop_off_path)
+            for j, c in enumerate(cars):
+                dist = Util.cal_dist(p.pick_up_point, c.position)
+                if dist < min_dist:
+                    min_dist = dist
+                    assigned_car = j
+            action[i] = assigned_car
+
+        return action
+                    
 
 
 if __name__ == '__main__':
