@@ -77,10 +77,10 @@ class Environment:
             
             duration += 1
         
-        reward = [-passenger.waiting_steps/10 for passenger in passengers]
+        reward = [-passenger.waiting_steps for passenger in passengers]
         
         if shared:
-            reward = [sum(reward)] * len(passengers)
+            reward = [sum(reward)/len(passengers)] * len(passengers)
                     
         return reward, duration
     

@@ -58,7 +58,7 @@ class DQN(nn.Module):
 
 class DQN_Agent:
     def __init__(self, env, input_size, output_size, hidden_size, batch_size = 128, lr = 0.001, gamma = .999, eps_start = 0.9, 
-                 eps_end = 0.05, eps_decay = 2500,  replay_capacity = 10000, num_save = 200, num_episodes = 10000, shared=False, training = False, load_file = None):
+                 eps_end = 0.05, eps_decay = 500,  replay_capacity = 10000, num_save = 200, num_episodes = 10000, shared=False, training = False, load_file = None):
         self.env = env
         self.orig_env = copy.deepcopy(env)
         self.grid_map = env.grid_map
@@ -171,9 +171,9 @@ class DQN_Agent:
             
             state = self.get_state()  
             
-            #action = self.select_action(state)
+            action = self.select_action(state)
             #action = self.random_action([state])
-            action = [self.algorithm.greedy_fcfs(self.grid_map)]
+            #action = [self.algorithm.greedy_fcfs(self.grid_map)]
             
             
             reward, duration = self.env.step(action, shared = self.shared)
@@ -188,8 +188,8 @@ class DQN_Agent:
             self.episode_durations.append(duration)
             
             if self.training:
-                self.plot_durations("rl_shared")
-                self.plot_loss_history("rl_shared")
+                self.plot_durations("rl_100x100_grid_10_cars_10_pass_5000_episodes_500_eps_decay")
+                self.plot_loss_history("rl_100x100_grid_10_cars_10_pass_5000_episodes_500_eps_decay")
             
             if self.training and episode % self.num_save == 0:
                 torch.save(self.policy_net.state_dict(), "episode_" + str(episode) + self.load_file )
@@ -278,11 +278,12 @@ class DQN_Agent:
         plt.xlabel('Episodes')
         plt.ylabel('Loss')
         plt.plot(self.loss_history)
+        np.save("Loss_"+filename, np.asarray(self.loss_history))
         plt.savefig("Loss_history_" + filename)
 
 if __name__ == '__main__':
-    num_cars = 8
-    num_passengers = 8
+    num_cars = 10
+    num_passengers = 10
     
     grid_map = GridMap(1, (100,100), num_cars, num_passengers)
     cars = grid_map.cars
@@ -293,10 +294,9 @@ if __name__ == '__main__':
     input_size = 2*num_cars + 4*num_passengers # cars (px, py), passengers(pickup_x, pickup_y, dest_x, dest_y)
     output_size = num_cars * num_passengers  # num_cars * (num_passengers + 1)
     hidden_size = 100
-    load_file = "unshared_model_num_cars_3_num_passengers_3_num_episodes_100000_hidden_size_100.pth"
+    load_file = "episode_2600unshared_model_num_cars_10_num_passengers_10_num_episodes_5000_hidden_size_100.pth"
     load_file = None
-    agent = DQN_Agent(env, input_size, output_size, hidden_size, load_file = load_file,lr=0.001, num_episodes=1000, shared = False, training = False)
+    agent = DQN_Agent(env, input_size, output_size, hidden_size, load_file = load_file, lr=0.001, eps_decay = 500, num_episodes=3000, shared = False, training = True)
     agent.train()
-    # durations = np.load("Duration_rl_2.npy")
-    # print(np.mean(durations[-2000:]))
-    # print(durations[-10:])
+
+    
