@@ -234,24 +234,52 @@ class Agent:
         print("Saving durations plot ...")
         plt.figure(2)
         plt.clf()
-        durations_t = torch.tensor(self.episode_durations, dtype=torch.float)
+
+        total_steps = np.array(self.episode_durations)
+
+        N = len(total_steps)
+        window_size = 50
+        if N < window_size:
+            total_steps_smoothed = total_steps
+        else:
+            total_steps_smoothed = np.zeros(N-window_size)
+
+            for i in range(N-window_size):
+                window_steps = total_steps[i:i+window_size]
+                total_steps_smoothed[i] = np.average(window_steps)
+
         plt.title('Episode Duration history')
         plt.xlabel('Episode')
         plt.ylabel('Duration')
-        plt.plot(durations_t.numpy())
-        np.save("Duration_"+filename, durations_t.numpy())
+        plt.plot(total_steps_smoothed)
+        np.save("Duration_"+filename, total_steps_smoothed)
         plt.savefig("Durations_history_" + filename)
         
     def plot_loss_history(self, filename):
         print("Saving loss history ...")
         plt.figure(2)
         plt.clf()
-        loss = torch.tensor(self.loss_history, dtype=torch.float)
+        #loss = torch.tensor(self.loss_history, dtype=torch.float)
+
+        total_loss = np.array(self.loss_history)
+
+        N = len(total_loss)
+        window_size = 50
+        if N < window_size:
+            total_loss_smoothed = total_loss
+        else:
+            total_loss_smoothed = np.zeros(N-window_size)
+
+            for i in range(N-window_size):
+                window_steps = total_loss[i:i+window_size]
+                total_loss_smoothed[i] = np.average(window_steps)
+
+
         plt.title('Loss history')
         plt.xlabel('Episodes')
         plt.ylabel('Loss')
         plt.plot(self.loss_history)
-        np.save("Loss_"+filename, np.asarray(self.loss_history))
+        np.save("Loss_"+filename, total_loss_smoothed)
         plt.savefig("Loss_history_" + filename)
 
 if __name__ == '__main__':
@@ -270,7 +298,7 @@ if __name__ == '__main__':
     #load_file = "dqn_model_num_cars_2_num_passengers_7_num_episodes_5000_hidden_size_100.pth"
     load_file = None
     #greedy, random, dqn, qmix
-    agent = Agent(env, input_size, output_size, hidden_size, load_file = load_file, lr=0.001, batch_size=128, eps_decay = 1000, num_episodes=100, mode = "qmix", training = False)
+    agent = Agent(env, input_size, output_size, hidden_size, load_file = load_file, lr=0.001, batch_size=128, eps_decay = 1000, num_episodes=5000, mode = "qmix", training = True)
     agent.train()
 
     
