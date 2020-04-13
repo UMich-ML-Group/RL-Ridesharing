@@ -15,7 +15,7 @@ class Environment:
         self.grid_map.add_cars(self.grid_map.num_cars) 
           
                         
-    def step(self, action, shared = False):
+    def step(self, action, mode):
         
         grid_map = self.grid_map
         cars = grid_map.cars
@@ -44,8 +44,6 @@ class Environment:
                     
             
 
-
-            
             for i,car in enumerate(cars):
 
                 if car.status == 'idle':
@@ -77,10 +75,15 @@ class Environment:
             
             duration += 1
         
-        reward = [-passenger.waiting_steps for passenger in passengers]
+        if mode == "dqn":
+            reward = [-passenger.waiting_steps for passenger in passengers]
         
-        if shared:
-            reward = [sum(reward)/len(passengers)] * len(passengers)
+        if mode == "qmix" or mode == "iql":
+            #reward = sum(reward)/1000 #len(passengers)
+            reward = -duration
+            
+
+        
                     
         return reward, duration
     
