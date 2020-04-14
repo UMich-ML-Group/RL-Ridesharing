@@ -65,7 +65,9 @@ class Agent:
         
         if load_file:
             self.policy_net.load_state_dict(torch.load(load_file))
+            self.mixer.load_state_dict(torch.load("mixer_" + load_file))
             self.policy_net.eval()
+            self.mixer.eval()
             self.load_file = "Trained_" + load_file
             print("Checkpoint loaded")
         else:         
@@ -73,6 +75,8 @@ class Agent:
                     "_num_episodes_" + str(self.num_episodes) + "_hidden_size_" + str(self.hidden_size) + ".pth"
             
         self.optimizer = optim.RMSprop(self.params, lr = self.lr)
+        #self.optimizer = optim.Adam(self.params, lr=self.lr, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
+        #self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, 1500, gamma=0.1)
 
         
 
@@ -162,6 +166,7 @@ class Agent:
                 
             if self.training and episode % self.num_save == 0:
                 torch.save(self.policy_net.state_dict(), "episode_" + str(episode) + "_" +self.load_file )
+                torch.save(self.mixer.state_dict(), "mixer_episode_" + str(episode) + "_" +self.load_file)
                 print("Checkpoint saved")
                 
                     
@@ -170,6 +175,7 @@ class Agent:
            
         if self.training:
             torch.save(self.policy_net.state_dict(), self.load_file )
+            torch.save(self.mixer.state_dict(), "mixer_" + self.load_file)
             print("Checkpoint saved")
             
         print("Average duration was ", duration_sum/self.num_episodes)
@@ -238,7 +244,7 @@ class Agent:
         total_steps = np.array(self.episode_durations)
 
         N = len(total_steps)
-        window_size = 50
+        window_size = 200
         if N < window_size:
             total_steps_smoothed = total_steps
         else:
@@ -264,7 +270,7 @@ class Agent:
         total_loss = np.array(self.loss_history)
 
         N = len(total_loss)
-        window_size = 50
+        window_size = 200
         if N < window_size:
             total_loss_smoothed = total_loss
         else:
@@ -283,7 +289,7 @@ class Agent:
         plt.savefig("Loss_history_" + filename)
 
 if __name__ == '__main__':
-    num_cars = 2
+    num_cars =2
     num_passengers = 7
     
     grid_map = GridMap(1, (10,10), num_cars, num_passengers)
@@ -294,11 +300,11 @@ if __name__ == '__main__':
 
     input_size = 2*num_cars + 4*num_passengers # cars (px, py), passengers(pickup_x, pickup_y, dest_x, dest_y)
     output_size = num_cars * num_passengers  # num_cars * (num_passengers + 1)
-    hidden_size = 100
-    #load_file = "dqn_model_num_cars_2_num_passengers_7_num_episodes_5000_hidden_size_100.pth"
+    hidden_size = 256
+    #load_file = "qmix_model_num_cars_2_num_passengers_7_num_episodes_5000_hidden_size_100.pth"
     load_file = None
     #greedy, random, dqn, qmix
-    agent = Agent(env, input_size, output_size, hidden_size, load_file = load_file, lr=0.001, batch_size=128, eps_decay = 1000, num_episodes=5000, mode = "qmix", training = True)
+    agent = Agent(env, input_size, output_size, hidden_size, load_file = load_file, lr=0.001, mix_hidden = 32, batch_size=128, eps_decay = 2000, num_episodes=50000, mode = "qmix", training = True)
     agent.train()
 
     

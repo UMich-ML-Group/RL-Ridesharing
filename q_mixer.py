@@ -16,12 +16,12 @@ class QMixer(nn.Module):
         self.hyper_w_final = nn.Linear(state_size, mix_hidden)
         # elif getattr(args, "hypernet_layers", 1) == 2:
         #     hypernet_embed = self.args.hypernet_embed
-        #     self.hyper_w_1 = nn.Sequential(nn.Linear(self.state_dim, hypernet_embed),
-        #                                    nn.ReLU(),
-        #                                    nn.Linear(hypernet_embed, self.embed_dim * self.n_agents))
-        #     self.hyper_w_final = nn.Sequential(nn.Linear(self.state_dim, hypernet_embed),
-        #                                    nn.ReLU(),
-        #                                    nn.Linear(hypernet_embed, self.embed_dim))
+        # self.hyper_w_1 = nn.Sequential(nn.Linear(state_size, 32),
+        #                                 nn.ReLU(),
+        #                                 nn.Linear(32, mix_hidden * num_passengers))
+        # self.hyper_w_final = nn.Sequential(nn.Linear(state_size, 32),
+        #                                 nn.ReLU(),
+        #                                 nn.Linear(32, mix_hidden))
         
         # State dependent bias for hidden layer
         self.hyper_b_1 = nn.Linear(state_size, mix_hidden)
