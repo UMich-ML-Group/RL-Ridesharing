@@ -80,7 +80,7 @@ class Environment:
         
         if mode == "qmix" or mode == "iql":
             #reward = sum(reward)/1000 #len(passengers)
-            reward = -duration/1000
+            reward = -duration
             
 
         

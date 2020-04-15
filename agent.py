@@ -257,6 +257,7 @@ class Agent:
         plt.title('Episode Duration history')
         plt.xlabel('Episode')
         plt.ylabel('Duration')
+
         plt.plot(total_steps_smoothed)
         np.save("Duration_"+filename, total_steps_smoothed)
         plt.savefig("Durations_history_" + filename)
@@ -270,7 +271,7 @@ class Agent:
         total_loss = np.array(self.loss_history)
 
         N = len(total_loss)
-        window_size = 200
+        window_size = 50
         if N < window_size:
             total_loss_smoothed = total_loss
         else:
@@ -301,10 +302,10 @@ if __name__ == '__main__':
     input_size = 2*num_cars + 4*num_passengers # cars (px, py), passengers(pickup_x, pickup_y, dest_x, dest_y)
     output_size = num_cars * num_passengers  # num_cars * (num_passengers + 1)
     hidden_size = 256
-    #load_file = "qmix_model_num_cars_2_num_passengers_7_num_episodes_5000_hidden_size_100.pth"
+    #load_file = "episode_2400_qmix_model_num_cars_2_num_passengers_7_num_episodes_50000_hidden_size_256.pth"
     load_file = None
     #greedy, random, dqn, qmix
-    agent = Agent(env, input_size, output_size, hidden_size, load_file = load_file, lr=0.001, mix_hidden = 32, batch_size=128, eps_decay = 2000, num_episodes=50000, mode = "qmix", training = True)
+    agent = Agent(env, input_size, output_size, hidden_size, load_file = load_file, lr=0.001, mix_hidden = 64, batch_size=128, eps_decay = 1000, num_episodes=100, mode = "qmix", training = False)
     agent.train()
 
     
