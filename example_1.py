@@ -1,50 +1,27 @@
-#!/usr/bin/python3
 
-import time
-from IPython.display import clear_output
-from env.gridmap import GridMap
-from env.env import DispatchEnv
+"""
+Runs one instance of the Atari environment and optimizes using DQN algorithm.
+Can use a GPU for the agent (applies to both sample and train). No parallelism
+employed, so everything happens in one python process; can be easier to debug.
+
+The kwarg snapshot_mode="last" to logger context will save the latest model at
+every log point (see inside the logger for other options).
+
+In viskit, whatever (nested) key-value pairs appear in config will become plottable
+keys for showing several experiments.  If you need to add more after an experiment, 
+use rlpyt.utils.logging.context.add_exp_param().
+
+"""
 
 from rlpyt.samplers.serial.sampler import SerialSampler
-from rlpyt.samplers.collections import TrajInfo
 from rlpyt.envs.atari.atari_env import AtariEnv, AtariTrajInfo
 from rlpyt.algos.dqn.dqn import DQN
-from rlpyt.algos.qpg.sac import SAC
 from rlpyt.agents.dqn.atari.atari_dqn_agent import AtariDqnAgent
-from rlpyt.agents.qpg.sac_agent import SacAgent
 from rlpyt.runners.minibatch_rl import MinibatchRlEval
 from rlpyt.utils.logging.context import logger_context
 
-def build_and_train(run_ID=0, cuda_idx=None):
-    sampler = SerialSampler(
-        EnvCls=DispatchEnv,
-        TrajInfoCls=TrajInfo,  # default traj info + GameScore
-        env_kwargs={},
-        eval_env_kwargs={},
-        batch_T=1,  # Four time-steps per sampler iteration.
-        batch_B=1,
-        max_decorrelation_steps=0,
-        eval_n_envs=1,
-        eval_max_steps=int(10e3),
-        eval_max_trajectories=5,
-    )
-    algo = SAC(discount=1, action_prior='gaussian')  # Run with defaults for other params.
-    agent = SacAgent()
-    runner = MinibatchRlEval(
-        algo=algo,
-        agent=agent,
-        sampler=sampler,
-        n_steps=50e6,
-        log_interval_steps=1e3,
-        affinity=dict(cuda_idx=cuda_idx),
-    )
-    config = None
-    name = "Ridesharing"
-    log_dir = "Ridesharing"
-    with logger_context(log_dir, run_ID, name, config, snapshot_mode="last"):
-        runner.train()
 
-def _build_and_train(game="pong", run_ID=0, cuda_idx=None):
+def build_and_train(game="pong", run_ID=0, cuda_idx=None):
     sampler = SerialSampler(
         EnvCls=AtariEnv,
         TrajInfoCls=AtariTrajInfo,  # default traj info + GameScore
@@ -73,24 +50,6 @@ def _build_and_train(game="pong", run_ID=0, cuda_idx=None):
     with logger_context(log_dir, run_ID, name, config, snapshot_mode="last"):
         runner.train()
 
-def main():
-    grid_map = GridMap(1, (7,7), 3, 3)
-    env = Environment(grid_map)
-    step_count = 0
-    while True:
-        finished = True
-        for p in grid_map.passengers:
-            if p.status != 'dropped':
-              finished = False
-        clear_output()
-        grid_map.visualize()
-        print('-'*10)
-        env.step()
-        step_count += 1
-        time.sleep(1)
-        if finished:
-            print('step cost:', step_count)
-            break
 
 if __name__ == "__main__":
     import argparse
@@ -100,6 +59,7 @@ if __name__ == "__main__":
     parser.add_argument('--cuda_idx', help='gpu to use ', type=int, default=None)
     args = parser.parse_args()
     build_and_train(
+        game=args.game,
         run_ID=args.run_ID,
         cuda_idx=args.cuda_idx,
     )

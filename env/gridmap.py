@@ -2,9 +2,9 @@
 import math
 import random
 
-from util import Util
-from car import Car
-from passenger import Passenger
+from env.util import Util
+from env.car import Car
+from env.passenger import Passenger
 
 class GridMap:
     def __init__(self, seed, size, num_cars, num_passengers):
@@ -16,9 +16,8 @@ class GridMap:
         self.map_cost = {}
         self.cars = []
         self.passengers = []
-        self.add_passenger(num_passengers)
-        self.add_cars(num_cars)
         self.init_map_cost()
+        self.reset_car_and_passenger()
 
     def __repr__(self):
         message = 'cls:' + type(self).__name__ + \
@@ -28,6 +27,12 @@ class GridMap:
         for p in self.passengers:
             message += repr(p) + '\n'
         return message
+
+    def reset_car_and_passenger(self):
+        self.cars.clear()
+        self.passengers.clear()
+        self.add_passenger(self.num_passengers)
+        self.add_cars(self.num_cars)
 
     def is_valid(self, p1):
         if p1[0]<0 or p1[1]<0 or p1[0]>self.size[0] or p1[1]>self.size[1]:

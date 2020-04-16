@@ -1,5 +1,5 @@
 
-from passenger import Passenger
+from env.passenger import Passenger
 
 class Car:
     def __init__(self, position):
