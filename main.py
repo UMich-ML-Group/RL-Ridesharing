@@ -4,20 +4,26 @@ import time
 from IPython.display import clear_output
 from env.gridmap import GridMap
 from env.env import DispatchEnv
+from env.env import TrackingEnv
 
 from rlpyt.samplers.serial.sampler import SerialSampler
 from rlpyt.samplers.collections import TrajInfo
 from rlpyt.envs.atari.atari_env import AtariEnv, AtariTrajInfo
 from rlpyt.algos.dqn.dqn import DQN
 from rlpyt.algos.qpg.sac import SAC
+from rlpyt.algos.pg.ppo import PPO
+from rlpyt.models.dqn.dueling import DuelingHeadModel
 from rlpyt.agents.dqn.atari.atari_dqn_agent import AtariDqnAgent
+from rlpyt.agents.dqn.dqn_agent import DqnAgent
 from rlpyt.agents.qpg.sac_agent import SacAgent
+from rlpyt.agents.pg.gaussian import GaussianPgAgent
 from rlpyt.runners.minibatch_rl import MinibatchRlEval
 from rlpyt.utils.logging.context import logger_context
 
 def build_and_train(run_ID=0, cuda_idx=None):
     sampler = SerialSampler(
-        EnvCls=DispatchEnv,
+        #EnvCls=DispatchEnv,
+        EnvCls=TrackingEnv,
         TrajInfoCls=TrajInfo,  # default traj info + GameScore
         env_kwargs={},
         eval_env_kwargs={},
@@ -28,14 +34,24 @@ def build_and_train(run_ID=0, cuda_idx=None):
         eval_max_steps=int(10e3),
         eval_max_trajectories=5,
     )
-    algo = SAC(discount=1, action_prior='gaussian')  # Run with defaults for other params.
-    agent = SacAgent()
+    algo = DQN()
+    #algo = SAC()  # Run with defaults for other params.
+    #algo = PPO()
+    agent = DqnAgent(
+            ModelCls=DuelingHeadModel,
+            model_kwargs=dict(
+                input_size=4,
+                hidden_sizes=256,
+                output_size=20))
+    #agent = SacAgent()
+    #agent = GaussianPgAgent()
     runner = MinibatchRlEval(
         algo=algo,
         agent=agent,
         sampler=sampler,
-        n_steps=50e6,
-        log_interval_steps=1e3,
+        #n_steps=50e6,
+        n_steps=1e6,
+        log_interval_steps=1e2,
         affinity=dict(cuda_idx=cuda_idx),
     )
     config = None
@@ -74,6 +90,7 @@ def _build_and_train(game="pong", run_ID=0, cuda_idx=None):
         runner.train()
 
 def main():
+    from env.environment import Environment
     grid_map = GridMap(1, (7,7), 3, 3)
     env = Environment(grid_map)
     step_count = 0
@@ -93,6 +110,7 @@ def main():
             break
 
 if __name__ == "__main__":
+    #main()
     import argparse
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--game', help='Atari game', default='pong')

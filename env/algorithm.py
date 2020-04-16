@@ -1,10 +1,10 @@
 
 import math
-from gridmap import GridMap
-from passenger import Passenger
-from car import Car
-from util import Util
-from dqn import DQN
+from env.gridmap import GridMap
+from env.passenger import Passenger
+from env.car import Car
+from env.util import Util
+from env.dqn import DQN
 
 class PairAlgorithm:
 

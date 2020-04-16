@@ -1,6 +1,6 @@
 
 
-from algorithm import PairAlgorithm
+from env.algorithm import PairAlgorithm
 
 class Environment:
 
@@ -12,7 +12,7 @@ class Environment:
         # paring
         self.algorithm.greedy_fcfs(self.grid_map)
         # TODO switch to reinforcement algorithm
-        self.algorithm.deep_q_learning(self.grid_map)
+        #self.algorithm.deep_q_learning(self.grid_map)
 
         for passenger in self.grid_map.passengers:
             if passenger.status == 'wait_pair' or passenger.status == 'wait_pick':

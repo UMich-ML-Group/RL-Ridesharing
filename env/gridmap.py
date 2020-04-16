@@ -1,6 +1,7 @@
 
 import math
 import random
+import pickle
 
 from env.util import Util
 from env.car import Car
@@ -8,7 +9,7 @@ from env.passenger import Passenger
 
 class GridMap:
     def __init__(self, seed, size, num_cars, num_passengers):
-        random.seed(seed)
+        #random.seed(seed)
         self.seed = seed
         self.size = size #(row, col)
         self.num_cars = num_cars
@@ -16,7 +17,9 @@ class GridMap:
         self.map_cost = {}
         self.cars = []
         self.passengers = []
-        self.init_map_cost()
+        #self.init_map_cost()
+        #self.dump_map_cost()
+        self.load_map_cost()
         self.reset_car_and_passenger()
 
     def __repr__(self):
@@ -139,6 +142,19 @@ class GridMap:
         for i in range(len(m)):
           print(m[i])
 
+    def dump_map_cost(self):
+        with open('map_cost.pkl', 'wb') as f:
+            pickle.dump(self.map_cost, f, pickle.HIGHEST_PROTOCOL)
+            print('map_cost saved.')
+
+    def load_map_cost(self):
+        import os
+        if not os.path.exists('map_cost.pkl'):
+            raise IOError('map_cost.pkl does not exist.')
+
+        with open('map_cost.pkl', 'rb') as f:
+            self.map_cost = pickle.load(f)
+            print('map_cost loaded.')
 
 if __name__ == '__main__':
     m = GridMap(0, (10,10), 3, 3)
