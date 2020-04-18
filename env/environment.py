@@ -8,6 +8,9 @@ class Environment:
         self.grid_map = grid_map
         self.algorithm = PairAlgorithm()
 
+    def reset(self):
+        self.grid_map.reset_car_and_passenger()
+
     def step(self):
         # paring
         self.algorithm.greedy_fcfs(self.grid_map)

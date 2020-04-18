@@ -1,4 +1,5 @@
 
+import time
 import numpy as np
 from collections import namedtuple
 
@@ -8,56 +9,75 @@ from rlpyt.spaces.int_box import IntBox
 from rlpyt.spaces.float_box import FloatBox
 from rlpyt.envs.base import Env, EnvSpaces, EnvStep
 from rlpyt.utils.collections import is_namedtuple_class
+from rlpyt.samplers.collections import TrajInfo
 
 # TODO not sure what this two column means
-EnvInfo = namedtuple("EnvInfo", ["timeout", "traj_done"])
 
+# This env is only testing the convergence of algorithm
+# The maximum trajectory reward should be 100
+#EnvInfo = namedtuple("EnvInfo", ["timeout", "traj_done"])
+EnvInfo = namedtuple("EnvInfo", ["timeout", "traj_done", "sim_steps"])
 class TrackingEnv(Env):
     def __init__(self):
         self._target_point = np.array([0,0], dtype=np.float32)
-        self._curr_point = np.random.uniform(low=-10.0, high=10.0, size=(2,)).astype(np.float32)
+        self._curr_point = np.random.uniform(low=-5.0, high=5.0, size=(2,)).astype(np.float32)
+        self._action_space = FloatBox(low=-5, high=5, shape=(2,))
+        self._observation_space = FloatBox(low=-100, high=100, shape=(2,))
         self._step_count = 0
-
-        #self._action_space = FloatBox(low=-1, high=1, shape=(2,))
-        self._action_space = IntBox(low=0, high=5)
-        self._observation_space = FloatBox(low=-10, high=10, shape=(2,))
 
     def step(self, action):
+        print('action:', action)
         self._curr_point += action
         r = 10 - np.linalg.norm(self._curr_point-self._target_point)
-
-        # add some noise
-        #self._curr_point += (np.matlib.rand(2)-0.5)*2
-        timeout = None
-
         obs = self._curr_point
-        d = True if self._step_count >= 100 else False
-        info = EnvInfo(timeout=timeout, traj_done=d)
-        print('action:', action)
-        print('reward:', r)
-        print('obs:', obs)
+        #obs = np.array([0,0], dtype=np.float32)
+        d = False
+        if np.linalg.norm(self._curr_point-self._target_point)>20 or self._step_count >= 10:
+            d = True
+        info = EnvInfo(timeout=False, traj_done=d)
+        self._step_count += 1
         return EnvStep(obs, r, d, info)
 
-
     def reset(self):
-        self._curr_point = np.random.uniform(low=-10.0, high=10.0, size=(2,)).astype(np.float32)
         self._step_count = 0
+        self._curr_point = np.random.uniform(low=-10.0, high=10.0, size=(2,)).astype(np.float32)
         obs = self._curr_point
         return obs
 
+class DispatchTrajInfo(TrajInfo):
+    _discount = 1  # Leading underscore, but also class attr not in self.__dict__.
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)  # (for AttrDict behavior)
+        self.Length = 0
+        self.Return = 0
+        self.NonzeroRewards = 0
+        self.DiscountedReturn = 0
+        self.SimSteps = 0
+        self._cur_discount = 1
+
+    def step(self, observation, action, reward, done, agent_info, env_info):
+        self.Length += 1
+        self.Return += reward
+        self.NonzeroRewards += reward != 0
+        self.DiscountedReturn += self._cur_discount * reward
+        self.SimSteps += env_info.sim_steps
+        self._cur_discount *= self._discount
+
+    def terminate(self, observation):
+        return self
 
 class DispatchEnv(Env):
 
-    def __init__(self, seed=1, map_size=10, num_cars=2, num_passengers=2):
+    def __init__(self, seed=1, map_size=10, num_cars=2, num_passengers=7):
         self.gridmap_env = GridMapEnv(seed, (map_size, map_size), num_cars, num_passengers)
         self.map_size = map_size
         self.num_cars = num_cars
         self.num_passengers = num_passengers
 
         # SAC only allow 1-dim action space
-        self._action_space = FloatBox(low=0, high=map_size, shape=(num_cars*3))
+        self._action_space = FloatBox(low=0, high=map_size, shape=(num_cars*3,))
         # SAC need flaot observe
-        self._observation_space = FloatBox(low=-1, high=map_size, shape=(num_cars+num_passengers, 5))
+        self._observation_space = FloatBox(low=-1, high=map_size, shape=((num_cars+num_passengers)*5,))
 
     def step(self, action):
         # parssing action space
@@ -71,32 +91,48 @@ class DispatchEnv(Env):
         d = None
         info = None
 
-        print(action)
+        #print(action)
         self.set_action(action)
 
         # move gridmap_env to next dispatch moment
         d = False
-        need_dispatch = True
+        need_dispatch = False
         timeout = False
         sim_count = 0
-        while need_dispatch:
+
+        while not need_dispatch:
             self.gridmap_env.step()
             d, need_dispatch = self.gridmap_env.need_dispatch()
             sim_count += 1
-            if sim_count > 100:
+
+            # debug section
+            #self.gridmap_env.render()
+            #time.sleep(.1)
+            #print('need_dispatch:', need_dispatch)
+            #print('-'*10)
+
+            if d:
+                break
+
+            if sim_count > 1000:
                 timeout = True
-                print('force break')
+                d = True
+                #print('timeout:', timeout, ' done:', d)
                 break
 
         # collect info to return
         r = -self.gridmap_env.collect_waiting_steps()
         obs = self.get_observation()
-        info = EnvInfo(timeout=timeout, traj_done=d)
-        print('reward:', r)
-        print('env obs:\n', obs)
-        return EnvStep(obs, r, d, info)
+        env_info = EnvInfo(timeout=timeout, traj_done=d, sim_steps=sim_count)
+        #print('reward:', r)
+        #print('env:', env_info)
+        #time.sleep(1)
+        env_step = EnvStep(obs, r, d, env_info)
+        #print(env_step)
+        return env_step
 
     def reset(self):
+        #print('**reset**')
         self.gridmap_env.reset()
         obs = self.get_observation()
         return obs
@@ -105,7 +141,7 @@ class DispatchEnv(Env):
         '''
             return a np int array with dimension (#car+#pass, 5),
             with value range [-1, map_size]
-            2nd dim for cars := (x, y, is_idel, null, null)
+            2nd dim for cars := (x, y, required_steps, is_idel, null)
             2nd dim for pass := (curr x, curr y, drop x, drop y, is_wait)
         '''
         obs = np.zeros((self.num_cars+self.num_passengers, 5), dtype=np.float32)
@@ -116,7 +152,7 @@ class DispatchEnv(Env):
             obs[idx, 0] = x
             obs[idx, 1] = y
             obs[idx, 2] = 1 if c.status == 'idle' else 0
-            obs[idx, 3] = -1 # unuse
+            obs[idx, 3] = 0 if not c.required_steps else c.required_steps
             obs[idx, 4] = -1 # unuse
             idx += 1
 
@@ -130,7 +166,8 @@ class DispatchEnv(Env):
             obs[idx, 4] = 1 if p.status == 'wait_pair' else 0
             idx += 1
 
-        return obs
+        #print('obs:\n', obs)
+        return obs.flatten()
 
     def set_action(self, action):
         '''
@@ -139,9 +176,8 @@ class DispatchEnv(Env):
             with value range [0, map_size]
             2nd dim for := (dest x, dest y, assign range)
         '''
-        #print('action:', action)
-        action_mat = action.reshape(self.num_cars, 3)
-        print('action mat:\n', action_mat)
+        action_mat = (action+self.map_size/2).reshape(self.num_cars, 3)
+        #print('act:\n', action_mat)
         for i, c in enumerate(self.gridmap_env.all_cars()):
             if c.status != 'idle':
                 continue
@@ -157,9 +193,10 @@ class DispatchEnv(Env):
                 # smaller than assign range, then pair up
                 if Util.cal_dist(predict_point, p.pick_up_point) < assign_range:
                     self.gridmap_env.pair(c, p)
-                    print('===== pair =====')
-                    print(c)
-                    print(p)
+                    #print('===== pair =====')
+                    #print(c)
+                    #print(p)
+                    break
 
     #@property
     #def horizon(self):
