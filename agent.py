@@ -65,9 +65,10 @@ class Agent:
         
         if load_file:
             self.policy_net.load_state_dict(torch.load(load_file))
-            self.mixer.load_state_dict(torch.load("mixer_" + load_file))
             self.policy_net.eval()
-            self.mixer.eval()
+            if self.mode == "qmix":
+                self.mixer.load_state_dict(torch.load("mixer_" + load_file))
+                self.mixer.eval()
             self.load_file = "Trained_" + load_file
             print("Checkpoint loaded")
         else:         
@@ -166,7 +167,8 @@ class Agent:
                 
             if self.training and episode % self.num_save == 0:
                 torch.save(self.policy_net.state_dict(), "episode_" + str(episode) + "_" +self.load_file )
-                torch.save(self.mixer.state_dict(), "mixer_episode_" + str(episode) + "_" +self.load_file)
+                if self.mode == "qmix":
+                    torch.save(self.mixer.state_dict(), "mixer_episode_" + str(episode) + "_" +self.load_file)
                 print("Checkpoint saved")
                 
                     
@@ -175,7 +177,8 @@ class Agent:
            
         if self.training:
             torch.save(self.policy_net.state_dict(), self.load_file )
-            torch.save(self.mixer.state_dict(), "mixer_" + self.load_file)
+            if self.mode == "qmix":
+                torch.save(self.mixer.state_dict(), "mixer_" + self.load_file)
             print("Checkpoint saved")
             
         print("Average duration was ", duration_sum/self.num_episodes)
@@ -308,7 +311,7 @@ if __name__ == '__main__':
     # random 3386, 337.336, 17092
     # load_file = None
     #greedy, random, dqn, qmix
-    agent = Agent(env, input_size, output_size, hidden_size, load_file = load_file, lr=0.001, mix_hidden = 64, batch_size=128, eps_decay = 20000, num_episodes=100, mode = "qmix", training = False) # 50,000 episodes for full trains
+    agent = Agent(env, input_size, output_size, hidden_size, load_file = load_file, lr=0.001, mix_hidden = 64, batch_size=128, eps_decay = 20000, num_episodes=100, mode = "dqn", training = True) # 50,000 episodes for full trains
     agent.train()
 
     
