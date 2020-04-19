@@ -43,8 +43,13 @@ def build_and_train(env_id="Hopper-v3", run_ID=0, cuda_idx=None):
         eval_max_steps=int(100),
         eval_max_trajectories=100,
     )
-    algo = SAC()  # Run with defaults.
-    agent = SacAgent(action_squash=5)
+    algo = SAC(
+            #discount=1,
+            #learning_rate=1e-4,
+            #reward_scale=1,
+            #target_entropy=0.8,
+            )  # Run with defaults.
+    agent = SacAgent()
     #algo = PPO()
     #agent = GaussianPgAgent()
     #agent = SacAgent()
@@ -61,7 +66,7 @@ def build_and_train(env_id="Hopper-v3", run_ID=0, cuda_idx=None):
     config = dict(env_id=env_id)
     name = "sac_" + env_id
     log_dir = "example_2"
-    with logger_context(log_dir, run_ID, name, config):
+    with logger_context(log_dir, run_ID, name, config, snapshot_mode="last"):
         runner.train()
 
 

@@ -21,8 +21,8 @@ class TrackingEnv(Env):
     def __init__(self):
         self._target_point = np.array([0,0], dtype=np.float32)
         self._curr_point = np.random.uniform(low=-5.0, high=5.0, size=(2,)).astype(np.float32)
-        self._action_space = FloatBox(low=-5, high=5, shape=(2,))
-        self._observation_space = FloatBox(low=-100, high=100, shape=(2,))
+        self._action_space = FloatBox(low=-1, high=1, shape=(2,))
+        self._observation_space = FloatBox(low=-1, high=1, shape=(2,))
         self._step_count = 0
 
     def step(self, action):
@@ -52,16 +52,23 @@ class DispatchTrajInfo(TrajInfo):
         self.Return = 0
         self.NonzeroRewards = 0
         self.DiscountedReturn = 0
+
         self.SimSteps = 0
+        self.DoneSimSteps = 0
         self._cur_discount = 1
+        self._done_sim_step = 0
 
     def step(self, observation, action, reward, done, agent_info, env_info):
         self.Length += 1
         self.Return += reward
         self.NonzeroRewards += reward != 0
         self.DiscountedReturn += self._cur_discount * reward
-        self.SimSteps += env_info.sim_steps
         self._cur_discount *= self._discount
+
+        self.SimSteps += env_info.sim_steps
+        self._done_sim_step += env_info.sim_steps
+        if done and env_info.timeout is False:
+            self.DoneSimSteps = self._done_sim_step
 
     def terminate(self, observation):
         return self
@@ -75,7 +82,7 @@ class DispatchEnv(Env):
         self.num_passengers = num_passengers
 
         # SAC only allow 1-dim action space
-        self._action_space = FloatBox(low=0, high=map_size, shape=(num_cars*3,))
+        self._action_space = FloatBox(low=0, high=map_size, shape=(num_cars*2,))
         # SAC need flaot observe
         self._observation_space = FloatBox(low=-1, high=map_size, shape=((num_cars+num_passengers)*5,))
 
@@ -87,19 +94,18 @@ class DispatchEnv(Env):
             2nd dim for := (dest x, dest y, assign range)
         '''
         obs = None
-        r = None
+        r = 0
         d = None
         info = None
 
         #print(action)
-        self.set_action(action)
+        r += self.set_action(action)
 
         # move gridmap_env to next dispatch moment
         d = False
         need_dispatch = False
         timeout = False
         sim_count = 0
-
         while not need_dispatch:
             self.gridmap_env.step()
             d, need_dispatch = self.gridmap_env.need_dispatch()
@@ -112,16 +118,18 @@ class DispatchEnv(Env):
             #print('-'*10)
 
             if d:
+                done_reward = 1*self.num_passengers # reward finished traj
+                done_reward -= self.gridmap_env.collect_waiting_steps()/(self.map_size**2*self.num_passengers)
+                r += torch.max(0, done_reward)
                 break
 
-            if sim_count > 1000:
+            if sim_count > self.num_cars*self.num_passengers:
                 timeout = True
                 d = True
                 #print('timeout:', timeout, ' done:', d)
                 break
 
         # collect info to return
-        r = -self.gridmap_env.collect_waiting_steps()
         obs = self.get_observation()
         env_info = EnvInfo(timeout=timeout, traj_done=d, sim_steps=sim_count)
         #print('reward:', r)
@@ -141,7 +149,7 @@ class DispatchEnv(Env):
         '''
             return a np int array with dimension (#car+#pass, 5),
             with value range [-1, map_size]
-            2nd dim for cars := (x, y, required_steps, is_idel, null)
+            2nd dim for cars := (x, y, is_idel, null, null)
             2nd dim for pass := (curr x, curr y, drop x, drop y, is_wait)
         '''
         obs = np.zeros((self.num_cars+self.num_passengers, 5), dtype=np.float32)
@@ -149,20 +157,20 @@ class DispatchEnv(Env):
         idx = 0
         for c in self.gridmap_env.all_cars():
             x, y = c.position
-            obs[idx, 0] = x
-            obs[idx, 1] = y
+            obs[idx, 0] = x/self.map_size
+            obs[idx, 1] = y/self.map_size
             obs[idx, 2] = 1 if c.status == 'idle' else 0
-            obs[idx, 3] = 0 if not c.required_steps else c.required_steps
+            obs[idx, 3] = -1 # unuse
             obs[idx, 4] = -1 # unuse
             idx += 1
 
         for p in self.gridmap_env.all_passengers():
             px, py = p.pick_up_point
             dx, dy = p.drop_off_point
-            obs[idx, 0] = px
-            obs[idx, 1] = py
-            obs[idx, 2] = dx
-            obs[idx, 3] = dy
+            obs[idx, 0] = px/self.map_size
+            obs[idx, 1] = py/self.map_size
+            obs[idx, 2] = dx/self.map_size
+            obs[idx, 3] = dy/self.map_size
             obs[idx, 4] = 1 if p.status == 'wait_pair' else 0
             idx += 1
 
@@ -176,14 +184,17 @@ class DispatchEnv(Env):
             with value range [0, map_size]
             2nd dim for := (dest x, dest y, assign range)
         '''
-        action_mat = (action+self.map_size/2).reshape(self.num_cars, 3)
+        reward = 0
+        action_mat = ((action+1)*self.map_size/2).reshape(self.num_cars, 2)
         #print('act:\n', action_mat)
         for i, c in enumerate(self.gridmap_env.all_cars()):
             if c.status != 'idle':
                 continue
 
             predict_point = (action_mat[i, 0], action_mat[i, 1])
-            assign_range = action_mat[i, 2]
+            # test for fixed assign range to reduce the complexity
+            #assign_range = action_mat[i, 2]
+            assign_range = 2
 
             for p in self.gridmap_env.all_passengers():
                 if p.status != 'wait_pair':
@@ -191,12 +202,15 @@ class DispatchEnv(Env):
 
                 # if distance between car's predict position and passenger's pick up position
                 # smaller than assign range, then pair up
-                if Util.cal_dist(predict_point, p.pick_up_point) < assign_range:
+                if Util.l2_dist(predict_point, p.pick_up_point) <= assign_range:
                     self.gridmap_env.pair(c, p)
+                    reward += 1
                     #print('===== pair =====')
                     #print(c)
                     #print(p)
                     break
+
+        return reward
 
     #@property
     #def horizon(self):
