@@ -293,7 +293,7 @@ if __name__ == '__main__':
     num_cars =2
     num_passengers = 7
     
-    grid_map = GridMap(1, (10,10), num_cars, num_passengers)
+    grid_map = GridMap(1, (500,500), num_cars, num_passengers)
     cars = grid_map.cars
     passengers = grid_map.passengers
     env = Environment(grid_map)
@@ -301,11 +301,14 @@ if __name__ == '__main__':
 
     input_size = 2*num_cars + 4*num_passengers # cars (px, py), passengers(pickup_x, pickup_y, dest_x, dest_y)
     output_size = num_cars * num_passengers  # num_cars * (num_passengers + 1)
-    hidden_size = 256
-    #load_file = "episode_2400_qmix_model_num_cars_2_num_passengers_7_num_episodes_50000_hidden_size_256.pth"
-    load_file = None
+    hidden_size = 128
+    #load_file = "episode_31000_qmix_model_num_cars_2_num_passengers_7_num_episodes_50000_hidden_size_128.pth" # 3218 over 1000 episodes
+    load_file = "qmix_model_num_cars_2_num_passengers_7_num_episodes_50000_hidden_size_128.pth" # 3218 over 1000 episodes, 316.509, 16274
+    # greedy 3526, 348.731, 17251
+    # random 3386, 337.336, 17092
+    # load_file = None
     #greedy, random, dqn, qmix
-    agent = Agent(env, input_size, output_size, hidden_size, load_file = load_file, lr=0.001, mix_hidden = 64, batch_size=128, eps_decay = 1000, num_episodes=100, mode = "qmix", training = False)
+    agent = Agent(env, input_size, output_size, hidden_size, load_file = load_file, lr=0.001, mix_hidden = 64, batch_size=128, eps_decay = 20000, num_episodes=100, mode = "qmix", training = False) # 50,000 episodes for full trains
     agent.train()
 
     
