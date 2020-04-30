@@ -5,18 +5,31 @@ Shared google doc:
 https://docs.google.com/document/d/1eSJ6UNhpUenhdOfjNK9OoH-TnjUoNzNX6BgmGwwovZM/edit
 
 --------------------
+# HOW TO RUN
 
-# Class Structure:
+* To have a variable number of cars and passengers between episodes: 
+   1. Open agent_variable.py
+   2. Set the variables max_cars and max_passengers to your desired maximum number of cars and passengers per episode.
+   3. Set the init_cars and init_passengers variables to the number of cars and passengers you want to have in the first episode.
+   4. Modify the GridMap object assigned to the grid_map variable by selecting the size of the grid (# of rows, # of columns) and the random seed.
+   5. Modify the hidden size variable corresponding to the hidden size of the agent network.
+   6. To use a specific model checkpoint, set the load_file variable to the name of the .pth file. Otherwise, set load_file to None.
+   7. Set the arguments of the Agent object assigned to the agent variable to choose the learning rate (lr), the size of the hidden layer of the mixing network (mix_hidden), the batch size (batch_size), the epsilon decay (eps_decay), the number of episodes (num_episodes), the mode (mode =  "random" or "greedy" or "dqn" or "qmix"), and whether we are training or not (Training = True or False).
+   8. Run agent_variable.py
+   
+* To have a fixed number of cars and passengers between episodes:
+   1. Open agent.py
+   2. Set the variables num_cars and num_passengers to your desired number of cars and passengers for each episode.
+   3. Follow instructions 4, 5, 6 and 7 for the scenario with variable cars and passengers shown above.
+   4. Run agent.py
+   
 
-* Util
-* Enviroment:
-  * GridMap
-    * Car
-    * Passenger
-  * Pair_Algorithm
-    * DQN
-        * ReplayBuffer
-        * QNetwork
+
+
+
+
+
+
 
 # Feature Representation
 
