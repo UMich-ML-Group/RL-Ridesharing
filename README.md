@@ -1,13 +1,20 @@
 # RL-Ridesharing
-Effcient Ridesharing Dispatch Using Reinforcement Learning
+### Effcient Ridesharing Dispatch Using Reinforcement Learning
 
-Shared google doc:
-https://docs.google.com/document/d/1eSJ6UNhpUenhdOfjNK9OoH-TnjUoNzNX6BgmGwwovZM/edit
+Code for EECS 545: Machine Learning
 
---------------------
-# HOW TO RUN
+**Team Members:**  
+[Brian Fogelson<sup>*</sup>](https://github.com/bfogels), [Hansal Shah<sup>*</sup>](https://github.com/hansalshah), [Oscar De Lima<sup>*</sup>](https://github.com/oidelima), [Tim Chu<sup>*</sup>](https://github.com/tim-ts-chu) \
+\* _Indicates equal contribution_
 
-* To have a variable number of cars and passengers between episodes: 
+## Requirements
+- Python 3.7.x
+- PyTorch 1.4.0
+
+## Training and evaluation
+
+**Variable number of cars and passengers between episodes**
+
    1. Open agent_variable.py
    2. Set the variables max_cars and max_passengers to your desired maximum number of cars and passengers per episode.
    3. Set the init_cars and init_passengers variables to the number of cars and passengers you want to have in the first episode.
@@ -16,12 +23,13 @@ https://docs.google.com/document/d/1eSJ6UNhpUenhdOfjNK9OoH-TnjUoNzNX6BgmGwwovZM/
    6. To use a specific model checkpoint, set the load_file variable to the name of the .pth file. Otherwise, set load_file to None.
    7. Set the arguments of the Agent object assigned to the agent variable to choose the learning rate (lr), the size of the hidden layer of the mixing network (mix_hidden), the batch size (batch_size), the epsilon decay (eps_decay), the number of episodes (num_episodes), the mode (mode =  "random" or "greedy" or "dqn" or "qmix"), and whether we are training or not (Training = True or False).
    8. Run agent_variable.py
+   8. `python agent_variable.py`
    
-* To have a fixed number of cars and passengers between episodes:
+**To have a fixed number of cars and passengers between episodes**
    1. Open agent.py
    2. Set the variables num_cars and num_passengers to your desired number of cars and passengers for each episode.
    3. Follow instructions 4, 5, 6 and 7 for the scenario with variable cars and passengers shown above.
-   4. Run agent.py
+   4. `python agent.py`
    
 
 
