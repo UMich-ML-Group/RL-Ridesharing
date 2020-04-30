@@ -56,6 +56,21 @@ class GridMap:
                 if self.is_valid(p_down): self.map_cost[(p, p_down)] = random.randint(0,9)
                 p_left = (row, col-1)
                 if self.is_valid(p_left): self.map_cost[(p, p_left)] = random.randint(0,9)
+                
+    def init_zero_map_cost(self):
+        for row in range(self.size[0]):
+            for col in range(self.size[1]):
+                p = (row, col)
+                # for up
+                p_up = (row-1, col)
+                if self.is_valid(p_up): self.map_cost[(p, p_up)] = 0
+                p_right = (row, col+1)
+                if self.is_valid(p_right): self.map_cost[(p, p_right)] = 0
+                p_down = (row+1, col)
+                if self.is_valid(p_down): self.map_cost[(p, p_down)] = 0
+                p_left = (row, col-1)
+                if self.is_valid(p_left): self.map_cost[(p, p_left)] = 0
+        
 
     def add_cars(self, num_cars):
         assert num_cars <= self.size[0]*self.size[1], 'number of cars is larger than number of grids'

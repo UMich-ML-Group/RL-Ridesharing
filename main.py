@@ -6,7 +6,7 @@ from gridmap import GridMap
 from environment import Environment
 
 def main():
-    grid_map = GridMap(1, (7,7), 3, 3)
+    grid_map = GridMap(1, (7,7), 3, 4)
     env = Environment(grid_map)
     step_count = 0
     while True:
