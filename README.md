@@ -1,7 +1,7 @@
 # RL-Ridesharing
-### Effcient Ridesharing Dispatch Using Reinforcement Learning
+### Effcient Ridesharing Dispatch Using Reinforcement Learning [[Report](https://github.com/UMich-ML-Group/RL-Ridesharing/blob/master/RL_Ridesharing_Final_Report(1).pdf)]
 
-Code for EECS 545: Machine Learning
+Code for EECS 545: Machine Learning Project
 
 **Team Members:**  
 [Brian Fogelson<sup>*</sup>](https://github.com/bfogels), [Hansal Shah<sup>*</sup>](https://github.com/hansalshah), [Oscar De Lima<sup>*</sup>](https://github.com/oidelima), [Tim Chu<sup>*</sup>](https://github.com/tim-ts-chu) \
